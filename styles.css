@@ -630,3 +630,25 @@ body {
 .order-discount { color: #2e7d32; }
 .order-district { font-size: 13px; color: var(--hint); margin-top: 6px; }
 .order-rebuy { margin-top: 10px; }
+
+/* ---------- Flash deals ---------- */
+.deals-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 14px 8px;
+}
+.deals-head h2 { padding: 0; }
+.flash-timer {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
