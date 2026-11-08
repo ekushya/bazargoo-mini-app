@@ -14,6 +14,21 @@
   var CART_KEY = 'bazargoo_cart_v1';
   var DELIVERY_KEY = 'bazargoo_delivery_v1';
   var SHIPPING = { inside: 60, outside: 120 };
+  // All 64 districts of Bangladesh; Dhaka first. District drives shipping:
+  // Dhaka -> Inside Dhaka (৳60), any other district -> Outside Dhaka (৳120).
+  var DISTRICTS = ['Dhaka', 'Bagerhat', 'Bandarban', 'Barguna', 'Barishal',
+    'Bhola', 'Bogura', 'Brahmanbaria', 'Chandpur', 'Chapainawabganj',
+    'Chattogram', 'Chuadanga', "Cox's Bazar", 'Cumilla', 'Dinajpur',
+    'Faridpur', 'Feni', 'Gaibandha', 'Gazipur', 'Gopalganj', 'Habiganj',
+    'Jamalpur', 'Jashore', 'Jhalokati', 'Jhenaidah', 'Joypurhat',
+    'Khagrachari', 'Khulna', 'Kishoreganj', 'Kurigram', 'Kushtia',
+    'Lakshmipur', 'Lalmonirhat', 'Madaripur', 'Magura', 'Manikganj',
+    'Meherpur', 'Moulvibazar', 'Munshiganj', 'Mymensingh', 'Naogaon',
+    'Narail', 'Narayanganj', 'Narsingdi', 'Natore', 'Netrokona',
+    'Nilphamari', 'Noakhali', 'Pabna', 'Panchagarh', 'Patuakhali',
+    'Pirojpur', 'Rajbari', 'Rajshahi', 'Rangamati', 'Rangpur', 'Satkhira',
+    'Shariatpur', 'Sherpur', 'Sirajganj', 'Sunamganj', 'Sylhet', 'Tangail',
+    'Thakurgaon'];
 
   // Bengali display labels for the store's real categories (raw category kept in data)
   var CATEGORY_BN = {
@@ -91,6 +106,26 @@
   }
   function shippingFee() { return SHIPPING[deliveryZone()] || 60; }
   function grandTotal() { return cartTotal() + shippingFee(); }
+
+  // ---------- district -> shipping ----------
+  function populateDistricts() {
+    var sel = $('buyerDistrict');
+    if (!sel || sel.options.length > 1) return;
+    DISTRICTS.forEach(function (d) {
+      var opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      sel.appendChild(opt);
+    });
+  }
+  function applyDistrictShipping() {
+    var district = $('buyerDistrict').value;
+    if (!district) return;
+    var zone = district === 'Dhaka' ? 'inside' : 'outside';
+    var radio = document.querySelector('input[name="shipZone"][value="' + zone + '"]');
+    if (radio) { radio.checked = true; markSelectedZone(); }
+    updateTotals();
+  }
   function cartCount() { return Object.keys(cart).reduce(function (s, id) { return s + cart[id]; }, 0); }
   function cartTotal() {
     return Object.keys(cart).reduce(function (s, id) {
@@ -109,6 +144,17 @@
       if (tg.setBackgroundColor) tg.setBackgroundColor(tg.backgroundColor || '#ffffff');
       if (tg.MainButton) tg.MainButton.onClick(onMainButton);
       if (tg.BackButton) tg.BackButton.onClick(onBackButton);
+      // Backup path for the phone share result: the same data also arrives
+      // as a 'contactRequested' event; skipped if the callback already ran.
+      if (tg.onEvent) {
+        try {
+          tg.onEvent('contactRequested', function (ev) {
+            if (phoneRequestPending || !$('buyerPhone').value) {
+              handleContactResult(ev && ev.status === 'sent', ev);
+            }
+          });
+        } catch (e) {}
+      }
     } catch (e) {}
   }
 
@@ -346,8 +392,14 @@
     if (nameEl && !nameEl.value) nameEl.value = saved.name || telegramName();
     if (phoneEl && !phoneEl.value) phoneEl.value = saved.phone || '';
     if (addrEl && !addrEl.value) addrEl.value = saved.address || '';
-    var radio = document.querySelector('input[name="shipZone"][value="' + (saved.zone || 'inside') + '"]');
-    if (radio) { radio.checked = true; markSelectedZone(); }
+    var distEl = $('buyerDistrict');
+    if (distEl && saved.district) {
+      distEl.value = saved.district;
+      applyDistrictShipping();
+    } else {
+      var radio = document.querySelector('input[name="shipZone"][value="' + (saved.zone || 'inside') + '"]');
+      if (radio) { radio.checked = true; markSelectedZone(); }
+    }
     // The "name taken from Telegram" hint is only true inside Telegram.
     var hint = $('tgNameHint');
     if (hint) hint.hidden = !IN_TELEGRAM;
@@ -362,29 +414,97 @@
     updateTotals();
   }
 
+  // ---------- phone from Telegram ----------
+  // The real requestContact callback is (granted, event) where event is
+  // {status, response?, responseUnsafe?}; the contact hides inside
+  // responseUnsafe.contact (object or JSON string) or responseUnsafe
+  // itself as a query string — the earlier code looked in the wrong
+  // places, so the number never filled in. This reads every shape.
+  var phoneRequestPending = false;
+
+  function parseQueryString(qs) {
+    var out = {};
+    String(qs || '').split('&').forEach(function (pair) {
+      var idx = pair.indexOf('=');
+      if (idx === -1) return;
+      try {
+        out[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
+      } catch (e) {}
+    });
+    return out;
+  }
+
+  function phoneFromValue(c) {
+    if (!c) return '';
+    if (typeof c === 'object') return c.phone_number || '';
+    if (typeof c !== 'string') return '';
+    if (c.indexOf('phone_number') !== -1 && c.indexOf('=') !== -1) {
+      var q = parseQueryString(c);
+      if (q.phone_number) return q.phone_number;
+      if (q.contact) {
+        try { var cj = JSON.parse(q.contact); if (cj && cj.phone_number) return cj.phone_number; } catch (e) {}
+      }
+    }
+    try { var j = JSON.parse(c); if (j && j.phone_number) return j.phone_number; } catch (e) {}
+    return c;
+  }
+
+  function extractPhone(ev) {
+    if (!ev) return '';
+    if (typeof ev === 'string') return normalizePhone(phoneFromValue(ev));
+    var ru = ev.responseUnsafe || {};
+    var cands = [ru.contact, ru.phone_number, ev.response, ev.contact, ev.phone_number];
+    for (var i = 0; i < cands.length; i++) {
+      var p = normalizePhone(phoneFromValue(cands[i]));
+      if (/^01[3-9][0-9]{8}$/.test(p)) return p;
+    }
+    return '';
+  }
+
+  function phoneNote(text) {
+    var n = $('phoneNote');
+    if (!n) return;
+    if (text) { n.textContent = text; n.hidden = false; }
+    else { n.hidden = true; }
+  }
+
+  function handleContactResult(granted, ev) {
+    phoneRequestPending = false;
+    var btn = $('fillPhoneBtn');
+    if (btn) btn.disabled = false;
+    if (!granted) { phoneNote('নম্বর শেয়ার করেননি — নিজে লিখুন।'); return; }
+    var phone = extractPhone(ev);
+    if (validPhone(phone)) {
+      $('buyerPhone').value = phone;
+      setFieldError('buyerPhone', false);
+      $('formError').hidden = true;
+      phoneNote('');
+      haptic();
+    } else {
+      phoneNote('নম্বর পাওয়া যায়নি — নিজে লিখুন।');
+    }
+  }
+
   function requestPhoneFromTelegram() {
     if (!tg || !tg.requestContact) return;
+    if (phoneRequestPending) return;
+    phoneRequestPending = true;
+    var btn = $('fillPhoneBtn');
+    if (btn) btn.disabled = true;
+    phoneNote('অনুরোধ পাঠানো হয়েছে — টেলিগ্রামে Allow করুন…');
     try {
-      tg.requestContact(function (a, b) {
-        // callback shape varies by client: (granted, contact) or a single
-        // event object — accept any of them defensively.
-        var resp = b || a || {};
-        var phone = '';
-        if (typeof resp === 'string') phone = resp;
-        else if (resp) {
-          phone = resp.phone_number ||
-            (resp.response && resp.response.phone_number) ||
-            (resp.contact && resp.contact.phone_number) || '';
-        }
-        var norm = normalizePhone(phone);
-        if (validPhone(norm)) {
-          $('buyerPhone').value = norm;
-          setFieldError('buyerPhone', false);
-          $('formError').hidden = true;
-          haptic();
-        }
+      tg.requestContact(function (granted, ev) {
+        handleContactResult(granted, ev);
       });
-    } catch (e) {}
+    } catch (e) {
+      // e.g. "Contact is already requested": an earlier tap is still in
+      // flight — its callback will fill the number when it arrives.
+      phoneNote('অনুরোধ পাঠানো হয়েছে — একটু অপেক্ষা করুন…');
+      setTimeout(function () {
+        phoneRequestPending = false;
+        if (btn) btn.disabled = false;
+      }, 5000);
+    }
   }
 
   function setFieldError(id, bad) {
@@ -396,17 +516,20 @@
     var name = $('buyerName').value.trim();
     var phone = normalizePhone($('buyerPhone').value);
     var address = $('buyerAddress').value.trim();
+    var district = $('buyerDistrict').value;
     setFieldError('buyerName', name.length < 3);
     setFieldError('buyerPhone', !validPhone(phone));
     setFieldError('buyerAddress', address.length < 10);
+    setFieldError('buyerDistrict', !district);
     var err = '';
     if (name.length < 3) err = 'আপনার পুরো নাম লিখুন।';
     else if (!validPhone(phone)) err = 'সঠিক মোবাইল নম্বর লিখুন (01XXXXXXXXX)।';
     else if (address.length < 10) err = 'সম্পূর্ণ ঠিকানা লিখুন।';
+    else if (!district) err = 'জেলা বাছুন।';
     var errEl = $('formError');
     if (err) { errEl.textContent = err; errEl.hidden = false; }
     else { errEl.hidden = true; }
-    return err ? null : { name: name, phone: phone, address: address, zone: deliveryZone() };
+    return err ? null : { name: name, phone: phone, address: address, district: district, zone: deliveryZone() };
   }
 
   // ---------- sheets ----------
@@ -481,6 +604,7 @@
         name: delivery.name,
         phone: delivery.phone,
         address: delivery.address,
+        district: delivery.district,
         shipping_zone: delivery.zone,
         shipping_fee: fee,
         payment: 'cod'
@@ -505,6 +629,7 @@
     lines.push('মোট: ৳' + order.total.toLocaleString('en-US') + ' (Cash on Delivery)');
     if (d.name) {
       lines.push('', 'নাম: ' + d.name, 'মোবাইল: ' + d.phone, 'ঠিকানা: ' + d.address);
+      if (d.district) lines.push('জেলা: ' + d.district);
     }
     return lines.join('\n');
   }
@@ -569,8 +694,14 @@
     Array.prototype.forEach.call(document.querySelectorAll('input[name="shipZone"]'), function (r) {
       r.addEventListener('change', function () { markSelectedZone(); updateTotals(); });
     });
+    populateDistricts();
+    $('buyerDistrict').addEventListener('change', function () {
+      setFieldError('buyerDistrict', false);
+      $('formError').hidden = true;
+      applyDistrictShipping();
+    });
     $('fillPhoneBtn').addEventListener('click', requestPhoneFromTelegram);
-    ['buyerName', 'buyerPhone', 'buyerAddress'].forEach(function (id) {
+    ['buyerName', 'buyerPhone', 'buyerAddress', 'buyerDistrict'].forEach(function (id) {
       $(id).addEventListener('input', function () {
         setFieldError(id, false);
         $('formError').hidden = true;
