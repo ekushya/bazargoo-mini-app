@@ -100,10 +100,17 @@
             <label for="buyerPhone">Mobile Number</label>
             <input id="buyerPhone" type="tel" placeholder="01XXXXXXXXX" autocomplete="tel" inputmode="tel">
             <button id="fillPhoneBtn" class="mini-btn" type="button" hidden>📱 Telegram থেকে নম্বর নিন</button>
+            <p id="phoneNote" class="field-hint" hidden></p>
           </div>
           <div class="field">
             <label for="buyerAddress">Full Address</label>
-            <textarea id="buyerAddress" rows="2" placeholder="বাসা/হোল্ডিং, রোড, এলাকা, থানা, জেলা"></textarea>
+            <textarea id="buyerAddress" rows="2" placeholder="বাসা/হোল্ডিং, রোড, এলাকা, থানা"></textarea>
+          </div>
+          <div class="field">
+            <label for="buyerDistrict">District / জেলা</label>
+            <select id="buyerDistrict">
+              <option value="">জেলা বাছুন…</option>
+            </select>
           </div>
           <p id="tgNameHint" class="field-hint">নাম টেলিগ্রাম থেকে নেওয়া হয়েছে — ভুল থাকলে ঠিক করে নিন।</p>
 
