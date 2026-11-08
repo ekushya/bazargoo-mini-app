@@ -17,9 +17,14 @@
         <span class="brand-tag">অনলাইন শপ • bazargoo.com</span>
       </div>
     </div>
-    <button id="cartBtn" class="cart-btn" type="button" aria-label="কার্ট দেখুন">
-      🛒 <span id="cartCount" class="cart-count" hidden>0</span>
-    </button>
+    <div class="header-actions">
+      <button id="ordersBtn" class="orders-btn" type="button" aria-label="আমার অর্ডার দেখুন">
+        📦
+      </button>
+      <button id="cartBtn" class="cart-btn" type="button" aria-label="কার্ট দেখুন">
+        🛒 <span id="cartCount" class="cart-count" hidden>0</span>
+      </button>
+    </div>
   </header>
 
   <div class="toolbar">
@@ -162,6 +167,23 @@
     </div>
   </div>
 
+  <!-- Orders sheet -->
+  <div id="ordersSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="ordersSheet" aria-label="বন্ধ করুন">✕</button>
+      <div class="sheet-body">
+        <h2>আমার অর্ডার 📦</h2>
+        <p class="orders-note">দোকান থেকে মেসেজ করে কনফার্ম করা হবে।</p>
+        <div id="ordersList"></div>
+        <div id="ordersEmpty" class="empty" hidden>
+          <p>এখনো কোনো অর্ডার নেই।</p>
+          <p class="empty-sub">প্রথম অর্ডার করলেই এখানে দেখতে পাবেন।</p>
+        </div>
+        <button class="btn-primary btn-block" type="button" data-close="ordersSheet">বন্ধ করুন</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Confirmation screen -->
   <div id="confirmSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
@@ -180,6 +202,6 @@
     </div>
   </div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
