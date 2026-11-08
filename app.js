@@ -5,8 +5,9 @@
  * Checkout: delivery form (name auto-filled from Telegram, phone via
  * Telegram contact share or typed, address typed), shipping Inside
  * Dhaka ৳60 / Outside Dhaka ৳120, payment Cash on Delivery only.
- * Sales features (8 Nov 2026): product share, today's best deals
- * (top 8 by real discount %), wishlist (localStorage).
+ * Sales features (8 Nov 2026): product share, flash deals
+ * (daily-rotated discounted products with a countdown to midnight
+ * Dhaka time), wishlist (localStorage).
  * First-order coupon (Angela, 8 Nov 2026): BAZAR5 = 5% off the first
  * order. Enforcement is PER-DEVICE only (localStorage) — there is no
  * server-side check, so do not claim the coupon cannot be reused.
@@ -524,19 +525,65 @@
     copyShareText(text, btn);
   }
 
-  // ---------- today's best deals ----------
-  function topDeals() {
-    return products
-      .filter(function (p) { return discountPct(p) > 0; })
-      .sort(function (a, b) {
-        var d = discountPct(b) - discountPct(a);
-        if (d) return d;
-        return (b.old_price - b.price) - (a.old_price - a.price);
-      })
-      .slice(0, 8);
+  // ---------- flash deals (daily rotation + countdown) ----------
+  // Dhaka is UTC+6, fixed offset. All Dhaka wall-clock math derives from
+  // the client's clock (Date.now() is UTC-based) — never the client's
+  // local timezone, which may not be Dhaka.
+  var DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000;
+  var FLASH_DAY_MS = 24 * 60 * 60 * 1000;
+  var flashSeed = null;    // Dhaka YYYYMMDD of the currently shown deals
+  var flashTimerId = null; // 1s interval id, started once
+
+  function dhakaDateSeed(nowMs) {
+    var d = new Date((nowMs == null ? Date.now() : nowMs) + DHAKA_OFFSET_MS);
+    return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  }
+  function flashRemainingMs(nowMs) {
+    var d = new Date((nowMs == null ? Date.now() : nowMs) + DHAKA_OFFSET_MS);
+    var intoDay = d.getUTCHours() * 3600000 + d.getUTCMinutes() * 60000 +
+      d.getUTCSeconds() * 1000 + d.getUTCMilliseconds();
+    return FLASH_DAY_MS - intoDay;
+  }
+  // mulberry32: small deterministic PRNG (seeded by the Dhaka date).
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Same Dhaka date -> the same 8 deals in the same order; a new date
+  // shuffles the discounted products differently (seeded Fisher-Yates).
+  function flashDeals(seed) {
+    var discounted = products.filter(function (p) { return discountPct(p) > 0; });
+    var rnd = mulberry32(seed);
+    var arr = discounted.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr.slice(0, 8);
+  }
+  function pad2(n) { return ('0' + n).slice(-2); }
+  function fmtFlashCountdown(ms) {
+    var total = Math.max(0, Math.floor(ms / 1000));
+    var h = Math.floor(total / 3600);
+    var m = Math.floor((total % 3600) / 60);
+    var s = total % 60;
+    return pad2(h) + ':' + pad2(m) + ':' + pad2(s);
+  }
+  function updateFlashTimer() {
+    var el = $('flashTimer');
+    if (!el || $('dealsSection').hidden) return;
+    // Midnight in Dhaka crossed while the app was open: re-pick today's deals.
+    if (dhakaDateSeed(Date.now()) !== flashSeed) { renderDeals(); return; }
+    el.textContent = 'শেষ হতে বাকি ' + bnNum(fmtFlashCountdown(flashRemainingMs(Date.now())));
   }
   function renderDeals() {
-    var deals = topDeals();
+    flashSeed = dhakaDateSeed(Date.now());
+    var deals = flashDeals(flashSeed);
     var sec = $('dealsSection');
     if (!deals.length) { sec.hidden = true; return; }
     sec.hidden = false;
@@ -558,6 +605,8 @@
     Array.prototype.forEach.call($('dealsRow').querySelectorAll('[data-deal]'), function (el) {
       el.addEventListener('click', function () { openDetail(el.getAttribute('data-deal')); });
     });
+    updateFlashTimer();
+    if (!flashTimerId) { flashTimerId = setInterval(updateFlashTimer, 1000); }
   }
 
   // ---------- detail wishlist ----------
