@@ -378,13 +378,17 @@
     var p = productById[id];
     if (!p) return;
     var text = shareText(p);
+    // Telegram's share methods only work INSIDE Telegram. tg exists (empty
+    // initData) even in a plain browser, where openTelegramLink would just
+    // navigate the page away — so check initData, not just tg.
+    var inTg = !!(tg && tg.initData);
     // 1) Telegram inline share (needs inline mode on the bot; throws
     //    WebAppInlineModeDisabled when it is off — then fall through).
-    if (tg && tg.switchInlineQuery) {
+    if (inTg && tg.switchInlineQuery) {
       try { tg.switchInlineQuery(text); return; } catch (e) { /* fall through */ }
     }
     // 2) Telegram's native share sheet — works without inline mode.
-    if (tg && tg.openTelegramLink) {
+    if (inTg && tg.openTelegramLink) {
       try {
         var url = 'https://t.me/share/url?url=' + encodeURIComponent(p.url || 'https://bazargoo.com') +
           '&text=' + encodeURIComponent(p.name + ' — ' + fmt(p.price));
