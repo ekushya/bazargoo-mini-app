@@ -1,0 +1,30 @@
+name: BazarGoo bot poller
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bazargoo-bot-poll
+  cancel-in-progress: false
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Poll Telegram for orders
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python3 bot/bot_poll.py
+      - name: Save update offset
+        run: |
+          git config user.name "bazargoo-bot"
+          git config user.email "bot@bazargoo.local"
+          git add bot/offset.txt || true
+          git diff --cached --quiet || git commit -m "Update Telegram offset [skip ci]"
+          git push || true
