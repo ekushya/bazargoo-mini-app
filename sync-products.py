@@ -4,7 +4,8 @@
 How it works (no public live feed exists on bazargoo.com, verified 2026-11-08):
   1. Fetch https://bazargoo.com/sitemap.xml -> the full list of product URLs.
   2. Fetch every product page and read its JSON-LD blocks:
-       - Product block: name, image, offers.price (the live price)
+       - Product block: name, image, offers.price (the live price),
+         offers.availability (InStock/OutOfStock -> in_stock true/false/null)
        - BreadcrumbList block: the product's category (position 2)
      Compare-at ("old") price is read from the page markup (line-through span).
   3. Rewrite products.json next to this script. No app rebuild needed —
@@ -46,6 +47,29 @@ def discover_slugs():
     return sorted(set(re.findall(r"https://bazargoo\.com/products/([a-z0-9\-]+)", xml)))
 
 
+def parse_availability(value):
+    """Map a JSON-LD Offer availability to in_stock: True / False / None.
+
+    True only for InStock; False for out-of-stock values (OutOfStock,
+    SoldOut); None when the page gives no availability or an ambiguous
+    value (e.g. PreOrder) — never guess.
+    """
+    if not value:
+        return None
+    if isinstance(value, dict):
+        value = value.get("@id") or value.get("url") or value.get("name") or ""
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    if not isinstance(value, str):
+        return None
+    v = value.strip().lower()
+    if "instock" in v:
+        return True
+    if "outofstock" in v or "soldout" in v:
+        return False
+    return None
+
+
 def fetch_product(slug):
     url = f"{STORE}/products/{slug}"
     try:
@@ -53,6 +77,7 @@ def fetch_product(slug):
     except Exception as e:
         return slug, None, f"fetch error: {e}"
     name = price = old_price = img = cat = cat_url = None
+    in_stock = None
     for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>', h, re.S):
         try:
             d = json.loads(m.group(1))
@@ -65,8 +90,11 @@ def fetch_product(slug):
         if isinstance(d, dict) and d.get("@type") == "Product":
             name, img = d.get("name"), d.get("image")
             offers = d.get("offers") or {}
+            if isinstance(offers, list):
+                offers = offers[0] if offers else {}
             if isinstance(offers, dict):
                 price = offers.get("price")
+                in_stock = parse_availability(offers.get("availability"))
     om = re.search(r'line-through[^>]*>৳<!-- -->?([\d,]+)</span>', h)
     if om:
         try:
@@ -80,6 +108,7 @@ def fetch_product(slug):
             price = None
     return slug, {
         "slug": slug, "name": name, "price": price, "old_price": old_price,
+        "in_stock": in_stock,
         "image": img, "category": cat, "category_url": cat_url, "url": url,
     }, None
 
@@ -104,6 +133,7 @@ def build():
             "name": info["name"],
             "price": info["price"],
             "old_price": info["old_price"],
+            "in_stock": info["in_stock"],
             "category": cat,
             "category_url": info["category_url"],
             "image": f"{img}?w=480&q=70" if img else "",
@@ -156,7 +186,7 @@ def main():
             "currency": "BDT",
             "currency_symbol": "৳",
             "fetched_at": str(date.today()),
-            "source": "Live scrape of bazargoo.com. Product list discovered from https://bazargoo.com/sitemap.xml. For each product page, name/price/image taken from the JSON-LD Product block (offers.price) and category from the JSON-LD BreadcrumbList; compare-at price from the page markup.",
+            "source": "Live scrape of bazargoo.com. Product list discovered from https://bazargoo.com/sitemap.xml. For each product page, name/price/image taken from the JSON-LD Product block (offers.price) and category from the JSON-LD BreadcrumbList; compare-at price from the page markup. Stock status (in_stock: true/false/null) comes from offers.availability in the JSON-LD: InStock -> true, OutOfStock/SoldOut -> false, missing or ambiguous -> null.",
             "live_feed": "No public live product feed exists on bazargoo.com (tested 2026-11-08: /products.json 404, /api/products 404, /api/store/products 404, /sitemap-products.xml 404; sitemap.xml lists URLs only, no prices). Prices therefore come from this bundled products.json. Re-run sync-products.py to refresh — no app rebuild needed.",
             "note": "Store's own spellings kept as-is in 'category': 'Cleanning', 'Kithen'. Merged duplicates: 'Home Appliance' into 'Home Appliances', 'Book' into 'Books' (same category, two spellings on the store).",
             "skipped": skipped,
