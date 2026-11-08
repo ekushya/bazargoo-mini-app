@@ -15,6 +15,16 @@
  * fetched from reviews.json (published by the shop after the admin
  * approves them in the bot); a buyer's own submitted review is stored
  * on their device until approved. Nothing is ever invented.
+ * PDF payments (Phase 1, 8 Nov 2026): a "📚 PDF" section lists free and
+ * paid PDFs from payments/pdf_catalog.json. Paid PDFs are bought through
+ * the bot (@BazarGooBot) via deep links — sendData never reaches
+ * Telegram, so the app never talks to the bot directly. Stars:
+ * t.me/BazarGooBot?start=buy_<id> (the bot sends a Stars invoice and
+ * delivers the PDF after payment). ZERO: a sheet shows the steps and a
+ * deep link to t.me/BazarGooBot?start=zero_<id> (the buyer sends ZERO,
+ * then pastes the txid to the bot for verification). Approved reviews
+ * are fetched from the worker (WORKER_URL + '/reviews.json') when it is
+ * set, otherwise from the static reviews.json.
  */
 (function () {
   'use strict';
@@ -150,10 +160,19 @@
     return s;
   }
   function loadReviews() {
-    // reviews.json may not exist yet (no approved reviews): treat any
-    // fetch failure as an empty list and never break the app.
-    return fetch('reviews.json')
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    // Approved reviews: once the Cloudflare Worker is live (WORKER_URL
+    // set — see payments/SETUP.md), fetch them from the worker first;
+    // otherwise — and on any failure — fall back to the static
+    // reviews.json in the repo. A missing file (no approved reviews
+    // yet) is an empty list, never an error that breaks the app.
+    var urls = WORKER_URL ? [WORKER_URL + '/reviews.json', 'reviews.json'] : ['reviews.json'];
+    var chain = Promise.reject();
+    urls.forEach(function (u) {
+      chain = chain.catch(function () {
+        return fetch(u).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      });
+    });
+    return chain
       .then(function (data) {
         approvedReviews = Array.isArray(data.reviews) ? data.reviews : [];
         // A detail sheet opened before the fetch finished: refresh it.
@@ -169,6 +188,96 @@
     var s = list.reduce(function (a, r) { return a + (r.stars || 0); }, 0);
     return s / list.length;
   }
+
+  // ---------- PDF payments (Phase 1) ----------
+  // Paid PDFs are bought through the bot (@BazarGooBot) via deep links —
+  // sendData never reaches Telegram, so the app never talks to the bot
+  // directly. Stars: t.me/BazarGooBot?start=buy_<id> (the bot sends a
+  // Stars invoice and delivers the PDF after payment). ZERO: the sheet
+  // below shows the steps; the bot (start=zero_<id>) gives the shop
+  // address and verifies the txid the buyer pastes. WORKER_URL is the
+  // live Cloudflare Worker (webhook set 2026-11-09) — see payments/SETUP.md.
+  // The ZERO shop address is also empty here on purpose: the bot always
+  // shows the real one, so the address never lives in the app.
+  var WORKER_URL = 'https://bazargoo-bot.bazargoo.workers.dev';
+  var ZERO_SHOP_ADDRESS = '';
+  var BOT_USERNAME = 'BazarGooBot';
+  var PDF_CATALOG_URL = 'payments/pdf_catalog.json';
+  var pdfs = [];
+  var pdfZeroId = null;
+  function loadPdfs() {
+    return fetch(PDF_CATALOG_URL)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) { pdfs = Array.isArray(data.pdfs) ? data.pdfs : []; renderPdfs(); })
+      .catch(function () { pdfs = []; renderPdfs(); });
+  }
+  function pdfPriceLine(p) {
+    if (p.free) return '<span class="pdf-price free">ফ্রি</span>';
+    var parts = [];
+    if (p.price_stars) parts.push('⭐ ' + bnNum(p.price_stars) + ' Stars');
+    else parts.push('⭐ দাম ঠিক হয়নি');
+    if (p.price_zero) parts.push('⛓️ ' + p.price_zero + ' ZERO');
+    else parts.push('⛓️ ZERO: দাম ঠিক হয়নি');
+    return '<span class="pdf-price">' + parts.join(' • ') + '</span>';
+  }
+  function renderPdfs() {
+    var sec = $('pdfSection');
+    if (!sec) return;
+    if (!pdfs.length) { sec.hidden = true; $('pdfRow').innerHTML = ''; return; }
+    sec.hidden = false;
+    var html = '';
+    pdfs.forEach(function (p) {
+      html += '<article class="pdf-card">' +
+        '<div class="pdf-title">' + esc(p.title) + '</div>' +
+        (p.description ? '<div class="pdf-desc">' + esc(p.description) + '</div>' : '') +
+        '<div class="pdf-price-row">' + pdfPriceLine(p) + '</div>';
+      if (p.free && p.file_url) {
+        html += '<a class="btn-primary pdf-btn" href="' + esc(p.file_url) + '" download>⬇️ ডাউনলোড করুন</a>';
+      } else if (p.free) {
+        html += '<span class="pdf-note">ফ্রি — শীঘ্রই আসছে</span>';
+      } else {
+        html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
+          '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
+      }
+      html += '</article>';
+    });
+    $('pdfRow').innerHTML = html;
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-stars]'), function (b) {
+      b.addEventListener('click', function () { buyPdfStars(b.getAttribute('data-buy-stars')); });
+    });
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-zero]'), function (b) {
+      b.addEventListener('click', function () { openPdfZeroSheet(b.getAttribute('data-buy-zero')); });
+    });
+  }
+  function openBotLink(url) {
+    var inTg = !!(tg && tg.initData);
+    if (inTg && tg.openTelegramLink) {
+      try { tg.openTelegramLink(url); return; } catch (e) { /* fall through */ }
+    }
+    window.open(url, '_blank');
+  }
+  function buyPdfStars(id) {
+    openBotLink('https://t.me/' + BOT_USERNAME + '?start=buy_' + encodeURIComponent(id));
+  }
+  function openPdfZeroSheet(id) {
+    var p = null;
+    pdfs.forEach(function (x) { if (x.id === id) p = x; });
+    if (!p) return;
+    pdfZeroId = id;
+    var body = $('pdfZeroBody');
+    var addrLine = ZERO_SHOP_ADDRESS
+      ? '<p><strong>ঠিকানা:</strong><br><code>' + esc(ZERO_SHOP_ADDRESS) + '</code></p>'
+      : '<p>দোকানের ZERO ঠিকানাটি বট জানিয়ে দেবে।</p>';
+    body.innerHTML =
+      '<p><strong>' + esc(p.title) + '</strong></p>' +
+      '<p>১. বটে গিয়ে ZERO ঠিকানা ও সঠিক পরিমাণ দেখে নিন' +
+      (p.price_zero ? ' (' + p.price_zero + ' ZERO)' : '') + '।</p>' +
+      addrLine +
+      '<p>২. নিজের ওয়ালেট থেকে ZERO পাঠান।</p>' +
+      '<p>৩. পেমেন্টের transaction id (txid) বটের চ্যাটে পাঠান — যাচাই হলেই বট PDF পাঠিয়ে দেবে।</p>';
+    showSheet('pdfZeroSheet', 'pdfZero');
+  }
+
   function telegramUser() {
     try {
       var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
@@ -420,7 +529,7 @@
       if (cartCount() === 0) { mb.hide(); return; }
       mb.setText('অর্ডার করুন • ' + fmt(grandTotal()));
       mb.show();
-    } else if (openSheet === 'detail' || openSheet === 'confirm' || openSheet === 'orders') {
+    } else if (openSheet === 'detail' || openSheet === 'confirm' || openSheet === 'orders' || openSheet === 'pdfZero') {
       mb.hide();
     } else if (cartCount() > 0) {
       mb.setText('কার্ট দেখুন • ' + fmt(cartTotal()));
@@ -446,6 +555,7 @@
     else if (openSheet === 'confirm') closeSheet('confirmSheet');
     else if (openSheet === 'reviewConfirm') closeSheet('reviewConfirmSheet');
     else if (openSheet === 'orders') closeSheet('ordersSheet');
+    else if (openSheet === 'pdfZero') closeSheet('pdfZeroSheet');
   }
 
   // ---------- data ----------
@@ -1486,6 +1596,11 @@
       });
     });
     $('copyOrderBtn').addEventListener('click', copyOrder);
+    $('pdfZeroBotBtn').addEventListener('click', function () {
+      if (!pdfZeroId) return;
+      closeSheet('pdfZeroSheet');
+      openBotLink('https://t.me/' + BOT_USERNAME + '?start=zero_' + encodeURIComponent(pdfZeroId));
+    });
     $('reviewSubmitBtn').addEventListener('click', submitReview);
     $('copyReviewBtn').addEventListener('click', copyReview);
     $('closeReviewConfirmBtn').addEventListener('click', function () {
@@ -1510,4 +1625,5 @@
   wireEvents();
   loadProducts();
   loadReviews();
+  loadPdfs();
 })();
