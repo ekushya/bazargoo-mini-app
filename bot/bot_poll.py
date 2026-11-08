@@ -122,6 +122,8 @@ def format_order_messages(order, buyer, chat):
             name, buyer.get("username") or u"\u2014", buyer.get("id") or chat.get("id")
         )
     )
+    if order.get("order_id"):
+        header += u"\u0985\u09b0\u09cd\u09a1\u09be\u09b0 \u09a8\u0982: {}\n".format(order.get("order_id"))
     if delivery.get("phone"):
         header += u"\u09ae\u09cb\u09ac\u09be\u0987\u09b2: {}\n".format(delivery.get("phone"))
     if delivery.get("address"):
