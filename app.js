@@ -1,8 +1,10 @@
-/* BazarGoo Telegram Mini App v1
+/* BazarGoo Telegram Mini App — checkout v2 (8 Nov 2026, per Angela)
  * Browse real bazargoo.com products, cart, and place an order.
  * Inside Telegram the order is sent to the bot via sendData();
  * outside Telegram the order summary is shown with a copy button.
- * No payment in v1. No COD / delivery / returns / warranty claims anywhere.
+ * Checkout: delivery form (name auto-filled from Telegram, phone via
+ * Telegram contact share or typed, address typed), shipping Inside
+ * Dhaka ৳60 / Outside Dhaka ৳120, payment Cash on Delivery only.
  */
 (function () {
   'use strict';
@@ -10,6 +12,8 @@
   var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
   var IN_TELEGRAM = !!tg;
   var CART_KEY = 'bazargoo_cart_v1';
+  var DELIVERY_KEY = 'bazargoo_delivery_v1';
+  var SHIPPING = { inside: 60, outside: 120 };
 
   // Bengali display labels for the store's real categories (raw category kept in data)
   var CATEGORY_BN = {
@@ -67,6 +71,26 @@
   function saveCart() {
     try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
   }
+  // ---------- delivery (checkout v2) ----------
+  function loadDelivery() {
+    try { return JSON.parse(localStorage.getItem(DELIVERY_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function saveDelivery(d) {
+    try { localStorage.setItem(DELIVERY_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+  function normalizePhone(raw) {
+    var d = String(raw || '').replace(/[^0-9]/g, '');
+    if (d.indexOf('880') === 0 && d.length === 13) d = '0' + d.slice(3);
+    else if (d.indexOf('88') === 0 && d.length === 12) d = d.slice(2);
+    return d;
+  }
+  function validPhone(raw) { return /^01[3-9][0-9]{8}$/.test(normalizePhone(raw)); }
+  function deliveryZone() {
+    var r = document.querySelector('input[name="shipZone"]:checked');
+    return r ? r.value : 'inside';
+  }
+  function shippingFee() { return SHIPPING[deliveryZone()] || 60; }
+  function grandTotal() { return cartTotal() + shippingFee(); }
   function cartCount() { return Object.keys(cart).reduce(function (s, id) { return s + cart[id]; }, 0); }
   function cartTotal() {
     return Object.keys(cart).reduce(function (s, id) {
@@ -93,7 +117,7 @@
     var mb = tg.MainButton;
     if (openSheet === 'cart') {
       if (cartCount() === 0) { mb.hide(); return; }
-      mb.setText('অর্ডার করুন • ' + fmt(cartTotal()));
+      mb.setText('অর্ডার করুন • ' + fmt(grandTotal()));
       mb.show();
     } else if (openSheet === 'detail' || openSheet === 'confirm') {
       mb.hide();
@@ -269,7 +293,7 @@
     var box = $('cartItems');
     var ids = Object.keys(cart);
     $('cartEmpty').hidden = ids.length !== 0;
-    $('cartSummary').style.display = ids.length === 0 ? 'none' : '';
+    $('checkoutForm').style.display = ids.length === 0 ? 'none' : '';
     var html = '';
     ids.forEach(function (id) {
       var p = productById[id];
@@ -292,7 +316,94 @@
         saveCart(); haptic(); renderGrid(); updateCartUI(); renderCartItems();
       });
     });
-    $('cartTotal').textContent = fmt(cartTotal());
+    updateTotals();
+  }
+
+  function updateTotals() {
+    $('subtotalVal').textContent = fmt(cartTotal());
+    $('shippingVal').textContent = fmt(shippingFee());
+    $('grandTotalVal').textContent = fmt(grandTotal());
+    updateMainButton();
+  }
+
+  function telegramName() {
+    try {
+      var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (!u) return '';
+      return [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+    } catch (e) { return ''; }
+  }
+
+  function markSelectedZone() {
+    Array.prototype.forEach.call(document.querySelectorAll('.option-card[data-zone]'), function (card) {
+      card.classList.toggle('selected', card.getAttribute('data-zone') === deliveryZone());
+    });
+  }
+
+  function fillCheckoutForm() {
+    var saved = loadDelivery();
+    var nameEl = $('buyerName'), phoneEl = $('buyerPhone'), addrEl = $('buyerAddress');
+    if (nameEl && !nameEl.value) nameEl.value = saved.name || telegramName();
+    if (phoneEl && !phoneEl.value) phoneEl.value = saved.phone || '';
+    if (addrEl && !addrEl.value) addrEl.value = saved.address || '';
+    var radio = document.querySelector('input[name="shipZone"][value="' + (saved.zone || 'inside') + '"]');
+    if (radio) { radio.checked = true; markSelectedZone(); }
+    // Telegram does not put the phone number in initData — offer the native
+    // contact-share button when the client supports requestContact (6.9+).
+    var btn = $('fillPhoneBtn');
+    if (btn) {
+      var supported = !!(tg && tg.requestContact) ||
+        !!(tg && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9'));
+      btn.hidden = !supported;
+    }
+    updateTotals();
+  }
+
+  function requestPhoneFromTelegram() {
+    if (!tg || !tg.requestContact) return;
+    try {
+      tg.requestContact(function (a, b) {
+        // callback shape varies by client: (granted, contact) or a single
+        // event object — accept any of them defensively.
+        var resp = b || a || {};
+        var phone = '';
+        if (typeof resp === 'string') phone = resp;
+        else if (resp) {
+          phone = resp.phone_number ||
+            (resp.response && resp.response.phone_number) ||
+            (resp.contact && resp.contact.phone_number) || '';
+        }
+        var norm = normalizePhone(phone);
+        if (validPhone(norm)) {
+          $('buyerPhone').value = norm;
+          setFieldError('buyerPhone', false);
+          $('formError').hidden = true;
+          haptic();
+        }
+      });
+    } catch (e) {}
+  }
+
+  function setFieldError(id, bad) {
+    var el = $(id);
+    if (el) el.classList.toggle('invalid', !!bad);
+  }
+
+  function validateDelivery() {
+    var name = $('buyerName').value.trim();
+    var phone = normalizePhone($('buyerPhone').value);
+    var address = $('buyerAddress').value.trim();
+    setFieldError('buyerName', name.length < 3);
+    setFieldError('buyerPhone', !validPhone(phone));
+    setFieldError('buyerAddress', address.length < 10);
+    var err = '';
+    if (name.length < 3) err = 'আপনার পুরো নাম লিখুন।';
+    else if (!validPhone(phone)) err = 'সঠিক মোবাইল নম্বর লিখুন (01XXXXXXXXX)।';
+    else if (address.length < 10) err = 'সম্পূর্ণ ঠিকানা লিখুন।';
+    var errEl = $('formError');
+    if (err) { errEl.textContent = err; errEl.hidden = false; }
+    else { errEl.hidden = true; }
+    return err ? null : { name: name, phone: phone, address: address, zone: deliveryZone() };
   }
 
   // ---------- sheets ----------
@@ -341,11 +452,12 @@
 
   function openCartSheet() {
     renderCartItems();
+    fillCheckoutForm();
     showSheet('cartSheet', 'cart');
   }
 
   // ---------- order ----------
-  function buildOrder() {
+  function buildOrder(delivery) {
     var items = Object.keys(cart).map(function (id) {
       var p = productById[id];
       return { id: id, name: p.name, price: p.price, qty: cart[id], subtotal: p.price * cart[id] };
@@ -355,12 +467,22 @@
       var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
       if (u) user = { id: u.id, username: u.username || null, first_name: u.first_name || null };
     } catch (e) {}
+    var fee = shippingFee();
     return {
       type: 'bazargoo_order',
       store: 'Bazar Goo',
       currency: 'BDT',
       items: items,
-      total: cartTotal(),
+      subtotal: cartTotal(),
+      delivery: {
+        name: delivery.name,
+        phone: delivery.phone,
+        address: delivery.address,
+        shipping_zone: delivery.zone,
+        shipping_fee: fee,
+        payment: 'cod'
+      },
+      total: cartTotal() + fee,
       item_count: cartCount(),
       user: user,
       ordered_at: new Date().toISOString()
@@ -372,13 +494,24 @@
     order.items.forEach(function (it) {
       lines.push('• ' + it.name + ' × ' + it.qty + ' — ৳' + it.subtotal.toLocaleString('en-US'));
     });
-    lines.push('', 'মোট: ৳' + order.total.toLocaleString('en-US'));
+    var d = order.delivery || {};
+    lines.push('', 'পণ্যের মোট: ৳' + (order.subtotal || order.total).toLocaleString('en-US'));
+    if (d.shipping_fee !== undefined) {
+      lines.push('ডেলিভারি (' + (d.shipping_zone === 'outside' ? 'ঢাকার বাইরে' : 'ঢাকার ভেতরে') + '): ৳' + d.shipping_fee.toLocaleString('en-US'));
+    }
+    lines.push('মোট: ৳' + order.total.toLocaleString('en-US') + ' (Cash on Delivery)');
+    if (d.name) {
+      lines.push('', 'নাম: ' + d.name, 'মোবাইল: ' + d.phone, 'ঠিকানা: ' + d.address);
+    }
     return lines.join('\n');
   }
 
   function placeOrder() {
     if (cartCount() === 0) return;
-    var order = buildOrder();
+    var delivery = validateDelivery();
+    if (!delivery) return;
+    saveDelivery(delivery);
+    var order = buildOrder(delivery);
     if (tg && tg.sendData) {
       try { tg.sendData(JSON.stringify(order)); } catch (e) { /* fall through to the copy backup below */ }
     }
@@ -430,6 +563,16 @@
     $('cartBtn').addEventListener('click', openCartSheet);
     $('stickyCartBtn').addEventListener('click', openCartSheet);
     $('orderBtn').addEventListener('click', placeOrder);
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="shipZone"]'), function (r) {
+      r.addEventListener('change', function () { markSelectedZone(); updateTotals(); });
+    });
+    $('fillPhoneBtn').addEventListener('click', requestPhoneFromTelegram);
+    ['buyerName', 'buyerPhone', 'buyerAddress'].forEach(function (id) {
+      $(id).addEventListener('input', function () {
+        setFieldError(id, false);
+        $('formError').hidden = true;
+      });
+    });
     $('copyOrderBtn').addEventListener('click', copyOrder);
     $('closeConfirmBtn').addEventListener('click', function () {
       closeSheet('confirmSheet');
