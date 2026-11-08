@@ -94,6 +94,16 @@
     if (!p.old_price || p.old_price <= p.price) return 0;
     return Math.round((1 - p.price / p.old_price) * 100);
   }
+
+  // ---------- stock ----------
+  // in_stock comes from the store's JSON-LD availability (sync-products.py):
+  // true = InStock, false = OutOfStock/SoldOut, null/missing = no info given.
+  function isOutOfStock(p) { return p && p.in_stock === false; }
+  function stockBadgeHTML(p) {
+    if (p.in_stock === true) return '<span class="stock-badge in-stock">✓ স্টকে আছে</span>';
+    if (p.in_stock === false) return '<span class="stock-badge out-of-stock">স্টক শেষ</span>';
+    return '';
+  }
   function haptic(kind) {
     try { if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(kind || 'light'); } catch (e) {}
   }
@@ -404,6 +414,11 @@
   }
 
   function qtyControlHTML(id, full) {
+    // Out-of-stock products cannot be added: show a disabled button
+    // instead of "যোগ করুন" and never show the quantity stepper.
+    if (isOutOfStock(productById[id])) {
+      return '<button class="btn-add btn-add-disabled" type="button" disabled>স্টক শেষ</button>';
+    }
     var q = cart[id] || 0;
     if (q === 0) {
       return '<button class="btn-add" type="button" data-add="' + esc(id) + '">যোগ করুন</button>';
@@ -439,6 +454,7 @@
         '</div>' +
         '<div class="card-body">' +
         '<div class="card-name">' + esc(p.name) + '</div>' +
+        stockBadgeHTML(p) +
         '<div class="card-price-row"><span class="price">' + fmt(p.price) + '</span>' +
         (p.old_price ? '<span class="old-price">' + fmt(p.old_price) + '</span>' : '') +
         (pct ? '<span class="discount-badge">-' + pct + '%</span>' : '') + '</div>' +
@@ -596,6 +612,7 @@
           : '<div class="card-img-placeholder">🛍️</div>') +
         '<div class="deal-body">' +
         '<div class="deal-name">' + esc(p.name) + '</div>' +
+        stockBadgeHTML(p) +
         '<div class="deal-price-row"><span class="price">' + fmt(p.price) + '</span>' +
         (p.old_price ? '<span class="old-price">' + fmt(p.old_price) + '</span>' : '') +
         (pct ? '<span class="discount-badge">-' + pct + '%</span>' : '') + '</div>' +
@@ -621,6 +638,9 @@
 
   // ---------- cart ----------
   function changeQty(id, delta) {
+    // Belt and braces: the add/stepper buttons are not rendered for
+    // out-of-stock products, but never let a stale handler add one either.
+    if (delta > 0 && isOutOfStock(productById[id])) return;
     var q = (cart[id] || 0) + delta;
     if (q <= 0) delete cart[id]; else cart[id] = q;
     saveCart();
@@ -880,6 +900,10 @@
     $('detailDiscount').hidden = !pct;
     if (pct) $('detailDiscount').textContent = '-' + pct + '%';
     $('detailCategory').textContent = CATEGORY_BN[p.category] || p.category || '';
+    var st = $('detailStock');
+    if (p.in_stock === true) { st.hidden = false; st.className = 'stock-badge in-stock'; st.textContent = '✓ স্টকে আছে'; }
+    else if (p.in_stock === false) { st.hidden = false; st.className = 'stock-badge out-of-stock'; st.textContent = 'স্টক শেষ'; }
+    else { st.hidden = true; }
     var link = $('detailLink');
     link.href = p.url;
     link.addEventListener('click', function (ev) {
