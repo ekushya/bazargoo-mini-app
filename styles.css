@@ -1,3 +1,8 @@
+/* NOTE: .sheet-backdrop sets display:flex, which overrides the browser's
+   built-in [hidden] rule — without this line every sheet (detail/cart/
+   confirm) shows on load and the close buttons cannot hide them. */
+[hidden] { display: none !important; }
+
 /* BazarGoo Mini App — mobile-first, Telegram theme aware */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
