@@ -90,9 +90,49 @@
           <p>কার্ট খালি।</p>
           <p class="empty-sub">পছন্দের পণ্য যোগ করুন।</p>
         </div>
-        <div id="cartSummary" class="cart-summary">
-          <div class="summary-row"><span>মোট</span><strong id="cartTotal">৳০</strong></div>
-          <button id="orderBtn" class="btn-primary btn-block" type="button">অর্ডার করুন</button>
+        <div id="checkoutForm" class="checkout">
+          <h3>Delivery</h3>
+          <div class="field">
+            <label for="buyerName">Full Name</label>
+            <input id="buyerName" type="text" placeholder="আপনার পুরো নাম" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="buyerPhone">Mobile Number</label>
+            <input id="buyerPhone" type="tel" placeholder="01XXXXXXXXX" autocomplete="tel" inputmode="tel">
+            <button id="fillPhoneBtn" class="mini-btn" type="button" hidden>📱 Telegram থেকে নম্বর নিন</button>
+          </div>
+          <div class="field">
+            <label for="buyerAddress">Full Address</label>
+            <textarea id="buyerAddress" rows="2" placeholder="বাসা/হোল্ডিং, রোড, এলাকা, থানা, জেলা"></textarea>
+          </div>
+          <p class="field-hint">নাম টেলিগ্রাম থেকে নেওয়া হয়েছে — ভুল থাকলে ঠিক করে নিন।</p>
+
+          <h3>Shipping</h3>
+          <label class="option-card selected" data-zone="inside">
+            <input type="radio" name="shipZone" value="inside" checked>
+            <span class="option-label">Inside Dhaka</span>
+            <span class="option-price">৳60</span>
+          </label>
+          <label class="option-card" data-zone="outside">
+            <input type="radio" name="shipZone" value="outside">
+            <span class="option-label">Outside Dhaka</span>
+            <span class="option-price">৳120</span>
+          </label>
+
+          <h3>Payment</h3>
+          <label class="option-card selected">
+            <input type="radio" name="payMethod" value="cod" checked>
+            <span class="option-label">Cash on Delivery</span>
+          </label>
+          <p class="option-sub">Pay with cash upon delivery of your order.</p>
+
+          <div class="cart-summary">
+            <div class="summary-row small"><span>পণ্যের মোট</span><span id="subtotalVal">৳০</span></div>
+            <div class="summary-row small"><span>ডেলিভারি চার্জ</span><span id="shippingVal">৳৬০</span></div>
+            <div class="summary-row"><span>মোট</span><strong id="grandTotalVal">৳০</strong></div>
+          </div>
+          <p id="formError" class="form-error" hidden></p>
+          <button id="orderBtn" class="btn-placeorder btn-block" type="button">PLACE ORDER</button>
           <p class="order-note">অর্ডারটি দোকানে পাঠানো হবে। দোকান থেকে মেসেজ করে অর্ডারটি কনফার্ম করা হবে।</p>
         </div>
       </div>
