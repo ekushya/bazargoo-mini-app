@@ -16,7 +16,10 @@ Checkout v2 order shape (from the Mini App):
               "shipping_zone": "inside"|"outside",
               "shipping_fee": 60|120, "payment": "cod"},
  "total": N, "item_count": N, "user": {...}, "ordered_at": ...}
-Older orders without "delivery" still work (items total only).
+First-order coupon orders also carry "coupon": "BAZAR5" and
+"discount": N (5% of the subtotal, rounded); "total" already has
+the discount subtracted. Older orders without "delivery" or
+without "coupon" still work (items total only / no discount line).
 """
 import json
 import os
@@ -79,17 +82,27 @@ def format_order_messages(order, buyer, chat):
     greet = u" \u09a7\u09a8\u09cd\u09af\u09ac\u09be\u09a6, {}!".format(name) if name else u" \u09a7\u09a8\u09cd\u09af\u09ac\u09be\u09a6!"
     zone = delivery.get("shipping_zone")
     fee = delivery.get("shipping_fee")
+    discount = order.get("discount") or 0
+    coupon = order.get("coupon")
     if zone and fee is not None:
         zone_bn = (
             u"\u09a2\u09be\u0995\u09be\u09b0 \u09ac\u09be\u0987\u09b0\u09c7"
             if zone == "outside"
             else u"\u09a2\u09be\u0995\u09be\u09b0 \u09ad\u09c7\u09a4\u09b0\u09c7"
         )
-        totals = (
-            u"\u09aa\u09a3\u09cd\u09af\u09c7\u09b0 \u09ae\u09cb\u099f: \u09f3{}\n"
-            u"\u09a1\u09c7\u09b2\u09bf\u09ad\u09be\u09b0\u09bf ({}): \u09f3{}\n"
-            u"\u09ae\u09cb\u099f: \u09f3{} (Cash on Delivery)"
-        ).format(subtotal, zone_bn, fee, total)
+        if coupon and discount:
+            totals = (
+                u"\u09aa\u09a3\u09cd\u09af\u09c7\u09b0 \u09ae\u09cb\u099f: \u09f3{}\n"
+                u"\u099b\u09be\u09a1\u09bc (BAZAR5 \u2014 \u09eb%): \u2212\u09f3{}\n"
+                u"\u09a1\u09c7\u09b2\u09bf\u09ad\u09be\u09b0\u09bf ({}): \u09f3{}\n"
+                u"\u09ae\u09cb\u099f: \u09f3{} (Cash on Delivery)"
+            ).format(subtotal, discount, zone_bn, fee, total)
+        else:
+            totals = (
+                u"\u09aa\u09a3\u09cd\u09af\u09c7\u09b0 \u09ae\u09cb\u099f: \u09f3{}\n"
+                u"\u09a1\u09c7\u09b2\u09bf\u09ad\u09be\u09b0\u09bf ({}): \u09f3{}\n"
+                u"\u09ae\u09cb\u099f: \u09f3{} (Cash on Delivery)"
+            ).format(subtotal, zone_bn, fee, total)
         forward_totals = totals[:-1] + u", {} \u0986\u0987\u099f\u09c7\u09ae)".format(
             order.get("item_count")
         )
