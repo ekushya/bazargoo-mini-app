@@ -379,9 +379,8 @@
   function placeOrder() {
     if (cartCount() === 0) return;
     var order = buildOrder();
-    var sent = false;
     if (tg && tg.sendData) {
-      try { tg.sendData(JSON.stringify(order)); sent = true; } catch (e) { sent = false; }
+      try { tg.sendData(JSON.stringify(order)); } catch (e) { /* fall through to the copy backup below */ }
     }
     // clear cart either way — the order is either sent or shown for copying
     cart = {};
@@ -389,12 +388,11 @@
     renderGrid();
     updateCartUI();
     closeSheet('cartSheet');
-    if (!sent) {
-      $('orderSummaryBox').hidden = false;
-      $('orderSummaryText').textContent = orderSummaryText(order);
-    } else {
-      $('orderSummaryBox').hidden = true;
-    }
+    // sendData can fail silently (no exception) in some Telegram clients,
+    // so always show the order summary as a backup: if the bot does not
+    // message a confirmation, the buyer can copy the order into the chat.
+    $('orderSummaryBox').hidden = false;
+    $('orderSummaryText').textContent = orderSummaryText(order);
     showSheet('confirmSheet', 'confirm');
     haptic('medium');
   }
