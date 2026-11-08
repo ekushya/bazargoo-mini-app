@@ -93,6 +93,19 @@
           <button id="detailWishBtn" class="btn-secondary" type="button">♡ পছন্দের তালিকায় যোগ করুন</button>
           <button id="detailShareBtn" class="btn-secondary" type="button">↗ শেয়ার করুন</button>
         </div>
+        <div id="reviewSection" class="review-section">
+          <h3>রিভিউ</h3>
+          <div id="reviewSummary" class="review-summary"></div>
+          <div id="approvedReviews" class="approved-reviews"></div>
+          <div id="myReviewBox" class="my-review" hidden></div>
+          <div id="reviewForm" class="review-form">
+            <p class="review-form-title">রিভিউ লিখুন</p>
+            <div id="reviewStars" class="review-stars" role="radiogroup" aria-label="রেটিং দিন"></div>
+            <textarea id="reviewText" rows="3" maxlength="300" placeholder="আপনার অভিজ্ঞতা লিখুন (ঐচ্ছিক)…"></textarea>
+            <p id="reviewError" class="form-error" hidden></p>
+            <button id="reviewSubmitBtn" class="btn-primary btn-block" type="button">রিভিউ পাঠান</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -206,6 +219,24 @@
     </div>
   </div>
 
-<script src="app.js?v=7"></script>
+  <!-- Review confirmation screen -->
+  <div id="reviewConfirmSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <div class="sheet-body confirm-body">
+        <div class="confirm-icon">⭐</div>
+        <h2>রিভিউ পাঠানো হয়েছে!</h2>
+        <p>ধন্যবাদ! আপনার রিভিউটি পাঠানো হয়েছে।<br>বট থেকে কনফার্মেশন না এলে নিচের রিভিউটি কপি করে বটের চ্যাটে পাঠান।</p>
+        <div id="reviewSummaryBox" class="order-summary" hidden>
+          <h3>রিভিউর বিবরণ</h3>
+          <pre id="reviewSummaryText"></pre>
+          <button id="copyReviewBtn" class="btn-secondary btn-block" type="button">রিভিউ কপি করুন</button>
+          <p class="order-note">বট থেকে কনফার্মেশন না পেলে উপরের রিভিউটি কপি করে চ্যাটে পাঠান।</p>
+        </div>
+        <button id="closeReviewConfirmBtn" class="btn-primary btn-block" type="button">বন্ধ করুন</button>
+      </div>
+    </div>
+  </div>
+
+<script src="app.js?v=8"></script>
 </body>
 </html>
