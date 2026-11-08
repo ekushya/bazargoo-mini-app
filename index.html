@@ -27,14 +27,24 @@
     </div>
   </header>
 
+  <div id="couponBanner" class="coupon-banner" role="button" tabindex="0">
+    <span class="coupon-banner-text">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>
+    <span class="coupon-banner-hint">চাপ দিলে কপি হবে</span>
+  </div>
+
   <div class="toolbar">
-    <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন">
+    <div class="search-wrap">
+      <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন">
+      <button id="searchClear" class="search-clear" type="button" aria-label="সার্চ মুছুন" hidden>✕</button>
+    </div>
     <select id="sortSelect" aria-label="সাজান">
       <option value="default">সাজান: জনপ্রিয়</option>
       <option value="price-asc">দাম: কম থেকে বেশি</option>
       <option value="price-desc">দাম: বেশি থেকে কম</option>
+      <option value="discount-desc">ছাড়: বেশি থেকে কম</option>
     </select>
   </div>
+  <p id="searchCount" class="search-count" hidden></p>
 
   <section id="dealsSection" class="deals" hidden>
     <div class="deals-head">
@@ -42,6 +52,11 @@
       <span id="flashTimer" class="flash-timer">শেষ হতে বাকি --:--:--</span>
     </div>
     <div id="dealsRow" class="deals-row"></div>
+  </section>
+
+  <section id="recentSection" class="deals" hidden>
+    <h2>🕐 সম্প্রতি দেখা</h2>
+    <div id="recentRow" class="deals-row"></div>
   </section>
 
   <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
@@ -237,6 +252,6 @@
     </div>
   </div>
 
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
