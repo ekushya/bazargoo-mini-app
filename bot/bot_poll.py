@@ -12,7 +12,8 @@ or written to any file.
 
 Checkout v2 order shape (from the Mini App):
 {"type": "bazargoo_order", "items": [...], "subtotal": N,
- "delivery": {"name", "phone", "address", "shipping_zone": "inside"|"outside",
+ "delivery": {"name", "phone", "address", "district",
+              "shipping_zone": "inside"|"outside",
               "shipping_fee": 60|120, "payment": "cod"},
  "total": N, "item_count": N, "user": {...}, "ordered_at": ...}
 Older orders without "delivery" still work (items total only).
@@ -112,6 +113,8 @@ def format_order_messages(order, buyer, chat):
         header += u"\u09ae\u09cb\u09ac\u09be\u0987\u09b2: {}\n".format(delivery.get("phone"))
     if delivery.get("address"):
         header += u"\u09a0\u09bf\u0995\u09be\u09a8\u09be: {}\n".format(delivery.get("address"))
+    if delivery.get("district"):
+        header += u"\u099c\u09c7\u09b2\u09be: {}\n".format(delivery.get("district"))
     forward = (
         header
         + "\n".join(item_lines)
