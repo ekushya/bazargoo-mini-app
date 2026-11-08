@@ -21,10 +21,12 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: python3 bot/bot_poll.py
-      - name: Save update offset
+      - name: Save update offset and reviews
         run: |
           git config user.name "bazargoo-bot"
           git config user.email "bot@bazargoo.local"
           git add bot/offset.txt || true
-          git diff --cached --quiet || git commit -m "Update Telegram offset [skip ci]"
+          git add bot/pending_reviews.json || true
+          git add reviews.json || true
+          git diff --cached --quiet || git commit -m "Update Telegram offset and reviews [skip ci]"
           git push || true
