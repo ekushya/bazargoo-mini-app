@@ -71,6 +71,12 @@
   var activeCategory = 'all';
   var searchQuery = '';
   var sortMode = 'default';
+  var SORT_KEY = 'bazargoo_sort_v1';
+  var SORT_MODES = ['default', 'price-asc', 'price-desc', 'discount-desc'];
+  try {
+    var _savedSort = localStorage.getItem(SORT_KEY) || 'default';
+    if (SORT_MODES.indexOf(_savedSort) !== -1) sortMode = _savedSort;
+  } catch (e) {}
   var cart = loadCart(); // { id: qty }
   var openSheet = null; // 'detail' | 'cart' | 'confirm' | 'orders' | null
   var detailId = null;
@@ -293,6 +299,31 @@
     else couponNote('');
   }
 
+  // ---------- coupon banner ----------
+  // Advertises the real first-order coupon. Once BAZAR5 is used on this
+  // device the banner switches to a muted "used" state and does nothing.
+  function isCouponUsed() { return loadUsedCoupons().indexOf(COUPON_CODE) !== -1; }
+  function renderCouponBanner() {
+    var b = $('couponBanner');
+    if (!b) return;
+    if (isCouponUsed()) {
+      b.classList.add('used');
+      b.innerHTML = '<span class="coupon-banner-text">✓ BAZAR5 ব্যবহার করা হয়েছে</span>' +
+        '<span class="coupon-banner-hint">প্রথম অর্ডারের ছাড়টি ব্যবহার করা হয়েছে</span>';
+    } else {
+      b.classList.remove('used');
+      b.innerHTML = '<span class="coupon-banner-text">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>' +
+        '<span class="coupon-banner-hint">চাপ দিলে কপি হবে</span>';
+    }
+  }
+  function copyCouponCode(btn) {
+    if (isCouponUsed()) return;
+    var done = function () { flashCopied(btn); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(COUPON_CODE).then(done, function () { fallbackCopy(COUPON_CODE); done(); });
+    } else { fallbackCopy(COUPON_CODE); done(); }
+  }
+
   // ---------- order history (per-device only) ----------
   // "আমার অর্ডার" is stored in localStorage on THIS device only. There is
   // no server: orders placed on another device or after clearing app data
@@ -427,6 +458,7 @@
         renderChips();
         renderDeals();
         renderGrid();
+        renderRecent();
         updateCartUI();
       })
       .catch(function () { $('loadError').hidden = false; });
@@ -477,6 +509,7 @@
     });
     if (sortMode === 'price-asc') list.sort(function (a, b) { return a.price - b.price; });
     if (sortMode === 'price-desc') list.sort(function (a, b) { return b.price - a.price; });
+    if (sortMode === 'discount-desc') list.sort(function (a, b) { return discountPct(b) - discountPct(a); });
     return list;
   }
 
@@ -496,14 +529,32 @@
       '<button type="button" data-inc="' + esc(id) + '" aria-label="বাড়ান">+</button></div>';
   }
 
+  function updateSearchUI(count) {
+    var q = searchQuery.trim();
+    var clearBtn = $('searchClear');
+    if (clearBtn) clearBtn.hidden = !q;
+    var countEl = $('searchCount');
+    if (!countEl) return;
+    if (q) {
+      countEl.hidden = false;
+      countEl.textContent = bnNum(count) + 'টি পণ্য পাওয়া গেছে';
+    } else {
+      countEl.hidden = true;
+    }
+  }
+
   function renderGrid() {
     var list = filteredProducts();
     var grid = $('grid');
     var empty = $('emptyState');
+    updateSearchUI(list.length);
     empty.hidden = list.length !== 0;
     if (list.length === 0 && activeCategory === '__wishlist') {
       empty.querySelector('p').textContent = '💔 পছন্দের তালিকা খালি।';
       empty.querySelector('.empty-sub').textContent = 'হার্ট চেপে পছন্দের পণ্য যোগ করুন।';
+    } else if (list.length === 0 && searchQuery.trim()) {
+      empty.querySelector('p').textContent = 'কোনো পণ্য পাওয়া যায়নি';
+      empty.querySelector('.empty-sub').textContent = 'অন্য কিছু লিখে খুঁজে দেখুন।';
     } else {
       empty.querySelector('p').textContent = '😕 কিছু পাওয়া যায়নি';
       empty.querySelector('.empty-sub').textContent = 'অন্য কিছু লিখে খুঁজে দেখুন।';
@@ -691,6 +742,54 @@
     });
     updateFlashTimer();
     if (!flashTimerId) { flashTimerId = setInterval(updateFlashTimer, 1000); }
+  }
+
+  // ---------- recently viewed ----------
+  var RECENT_KEY = 'bazargoo_recently_viewed_v1';
+  var MAX_RECENT = 8;
+  function loadRecent() {
+    try {
+      var r = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      return Array.isArray(r) ? r.filter(function (id) { return typeof id === 'string'; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveRecent(list) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function recordRecent(id) {
+    if (!id || !productById[id]) return;
+    var list = loadRecent().filter(function (x) { return x !== id; });
+    list.unshift(id);
+    if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+    saveRecent(list);
+    renderRecent();
+  }
+  function renderRecent() {
+    var sec = $('recentSection');
+    if (!sec) return;
+    var ids = loadRecent().filter(function (id) { return !!productById[id]; });
+    if (!ids.length) { sec.hidden = true; $('recentRow').innerHTML = ''; return; }
+    sec.hidden = false;
+    var html = '';
+    ids.forEach(function (id) {
+      var p = productById[id];
+      var pct = discountPct(p);
+      html += '<article class="deal-card" data-recent="' + esc(p.id) + '">' +
+        (p.image
+          ? '<img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;card-img-placeholder&quot;>🛍️</div>\'">'
+          : '<div class="card-img-placeholder">🛍️</div>') +
+        '<div class="deal-body">' +
+        '<div class="deal-name">' + esc(p.name) + '</div>' +
+        stockBadgeHTML(p) +
+        '<div class="deal-price-row"><span class="price">' + fmt(p.price) + '</span>' +
+        (p.old_price ? '<span class="old-price">' + fmt(p.old_price) + '</span>' : '') +
+        (pct ? '<span class="discount-badge">-' + pct + '%</span>' : '') + '</div>' +
+        '</div></article>';
+    });
+    $('recentRow').innerHTML = html;
+    Array.prototype.forEach.call($('recentRow').querySelectorAll('[data-recent]'), function (el) {
+      el.addEventListener('click', function () { openDetail(el.getAttribute('data-recent')); });
+    });
   }
 
   // ---------- detail wishlist ----------
@@ -960,6 +1059,7 @@
     var p = productById[id];
     if (!p) return;
     detailId = id;
+    recordRecent(id);
     $('detailImg').src = p.image_large || p.image;
     $('detailImg').alt = p.name;
     $('detailName').textContent = p.name;
@@ -1171,6 +1271,7 @@
       if (used.indexOf(COUPON_CODE) === -1) { used.push(COUPON_CODE); saveUsedCoupons(used); }
       appliedCoupon = '';
       saveAppliedCoupon();
+      renderCouponBanner();
     }
     if (tg && tg.sendData) {
       try { tg.sendData(JSON.stringify(order)); } catch (e) { /* fall through to the copy backup below */ }
@@ -1343,10 +1444,23 @@
       searchQuery = e.target.value;
       renderGrid();
     });
+    $('searchClear').addEventListener('click', function () {
+      $('searchInput').value = '';
+      searchQuery = '';
+      renderGrid();
+      $('searchInput').focus();
+    });
+    $('sortSelect').value = sortMode;
     $('sortSelect').addEventListener('change', function (e) {
       sortMode = e.target.value;
+      try { localStorage.setItem(SORT_KEY, sortMode); } catch (err) {}
       renderGrid();
     });
+    $('couponBanner').addEventListener('click', function () { copyCouponCode($('couponBanner')); });
+    $('couponBanner').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyCouponCode($('couponBanner')); }
+    });
+    renderCouponBanner();
     $('cartBtn').addEventListener('click', openCartSheet);
     $('ordersBtn').addEventListener('click', openOrdersSheet);
     $('stickyCartBtn').addEventListener('click', openCartSheet);
