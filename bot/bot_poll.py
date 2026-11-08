@@ -122,6 +122,28 @@ def main():
                 print("order handled: total \u09f3{}".format(total))
                 continue
 
+        if "BazarGoo \u0985\u09b0\u09cd\u09a1\u09be\u09b0" in text and "\u09ae\u09cb\u099f: \u09f3" in text:
+            # pasted order: copy fallback when sendData did not deliver
+            bname = chat.get("first_name") or ""
+            greet = " \u09a7\u09a8\u09cd\u09af\u09be\u09a6, {}!".format(bname) if bname else " \u09a7\u09a8\u09cd\u09af\u09be\u09a6!"
+            send(
+                token,
+                chat_id,
+                "\u2705 \u0985\u09b0\u09cd\u09a1\u09be\u09b0 \u09aa\u09c7\u09af\u09bc\u09c7\u099b\u09bf!{}".format(greet)
+                + "\n\n\u09b6\u09c0\u0998\u09cd\u09b0\u0987 \u0986\u09aa\u09a8\u09be\u09b0 \u09b8\u09be\u09a5\u09c7 \u09af\u09cb\u0997\u09be\u09af\u09cb\u0997 \u0995\u09b0\u09be \u09b9\u09ac\u09c7\u0964\n\u2014 Bazar Goo \U0001f6cd\ufe0f",
+            )
+            send(
+                token,
+                ADMIN_ID,
+                "\U0001f6cd\ufe0f \u09a8\u09a4\u09c1\u09a8 \u0985\u09b0\u09cd\u09a1\u09be\u09b0 \u2014 Bazar Goo (\u0995\u09aa\u09bf \u0995\u09b0\u09be)\n"
+                + "\u0995\u09cd\u09b0\u09c7\u09a4\u09be: {} (@{}, id {})\n".format(
+                    bname, chat.get("username") or "\u2014", chat_id
+                )
+                + text,
+            )
+            print("pasted order forwarded")
+            continue
+
         if text.startswith("/start"):
             send(
                 token,
