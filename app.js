@@ -11,6 +11,10 @@
  * First-order coupon (Angela, 8 Nov 2026): BAZAR5 = 5% off the first
  * order. Enforcement is PER-DEVICE only (localStorage) — there is no
  * server-side check, so do not claim the coupon cannot be reused.
+ * Reviews (8 Nov 2026): real reviews only — approved reviews are
+ * fetched from reviews.json (published by the shop after the admin
+ * approves them in the bot); a buyer's own submitted review is stored
+ * on their device until approved. Nothing is ever invented.
  */
 (function () {
   'use strict';
@@ -103,6 +107,68 @@
     if (p.in_stock === true) return '<span class="stock-badge in-stock">✓ স্টকে আছে</span>';
     if (p.in_stock === false) return '<span class="stock-badge out-of-stock">স্টক শেষ</span>';
     return '';
+  }
+
+  // ---------- reviews ----------
+  // Reviews are REAL only: approved reviews come from reviews.json
+  // (published by the shop after admin approval via the bot), and the
+  // buyer's own submitted review is stored on THIS device only until
+  // approved. Nothing is ever invented or pre-filled.
+  var REVIEWS_KEY = 'bazargoo_my_reviews_v1';
+  var approvedReviews = []; // [{review_id, product_id, stars, text, buyer_name, submitted_at, approved_at}]
+  var myReviews = loadMyReviews(); // { productId: {review_id, stars, text, submitted_at} }
+  var reviewStars = 0; // stars currently selected in the form (1-5)
+  function loadMyReviews() {
+    try {
+      var r = JSON.parse(localStorage.getItem(REVIEWS_KEY) || '{}');
+      return r && typeof r === 'object' ? r : {};
+    } catch (e) { return {}; }
+  }
+  function saveMyReviews() {
+    try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(myReviews)); } catch (e) {}
+  }
+  function makeReviewId() {
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = ('0' + (now.getMonth() + 1)).slice(-2);
+    var d = ('0' + now.getDate()).slice(-2);
+    // No 0/O/1/I — same rule as order ids.
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var s = '';
+    for (var i = 0; i < 4; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return 'RV-' + y + m + d + '-' + s;
+  }
+  function starsHTML(n) {
+    var s = '';
+    for (var i = 1; i <= 5; i++) s += (i <= n ? '★' : '☆');
+    return s;
+  }
+  function loadReviews() {
+    // reviews.json may not exist yet (no approved reviews): treat any
+    // fetch failure as an empty list and never break the app.
+    return fetch('reviews.json')
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        approvedReviews = Array.isArray(data.reviews) ? data.reviews : [];
+        // A detail sheet opened before the fetch finished: refresh it.
+        if (detailId) renderReviews();
+      })
+      .catch(function () { approvedReviews = []; });
+  }
+  function approvedFor(productId) {
+    return approvedReviews.filter(function (r) { return r.product_id === productId; });
+  }
+  function avgStars(list) {
+    if (!list.length) return 0;
+    var s = list.reduce(function (a, r) { return a + (r.stars || 0); }, 0);
+    return s / list.length;
+  }
+  function telegramUser() {
+    try {
+      var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (u) return { id: u.id, username: u.username || null, first_name: u.first_name || null };
+    } catch (e) {}
+    return null;
   }
   function haptic(kind) {
     try { if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(kind || 'light'); } catch (e) {}
@@ -347,6 +413,7 @@
     if (openSheet === 'detail') closeSheet('detailSheet');
     else if (openSheet === 'cart') closeSheet('cartSheet');
     else if (openSheet === 'confirm') closeSheet('confirmSheet');
+    else if (openSheet === 'reviewConfirm') closeSheet('reviewConfirmSheet');
     else if (openSheet === 'orders') closeSheet('ordersSheet');
   }
 
@@ -882,6 +949,9 @@
     if (openSheet === 'detail') detailId = null;
     if (id === 'ordersSheet') expandedOrderId = null;
     openSheet = null;
+    // The review confirm sheet sits on top of the detail sheet: closing
+    // it returns to the detail sheet, so keep the back button working.
+    if (id === 'reviewConfirmSheet' && !$('detailSheet').hidden) openSheet = 'detail';
     updateBackButton();
     updateMainButton();
   }
@@ -913,6 +983,8 @@
     renderDetailWish();
     var shareBtn = $('detailShareBtn');
     shareBtn.onclick = function () { shareProduct(detailId, shareBtn); };
+    reviewStars = 0;
+    renderReviews();
     showSheet('detailSheet', 'detail');
   }
 
@@ -1138,6 +1210,133 @@
     document.body.removeChild(ta);
   }
 
+  // ---------- reviews UI ----------
+  function renderReviewStars() {
+    var wrap = $('reviewStars');
+    var html = '';
+    for (var i = 1; i <= 5; i++) {
+      html += '<button type="button" class="review-star' + (i <= reviewStars ? ' selected' : '') +
+        '" data-star="' + i + '" aria-label="' + bnNum(i) + ' স্টার">★</button>';
+    }
+    wrap.innerHTML = html;
+    Array.prototype.forEach.call(wrap.querySelectorAll('[data-star]'), function (b) {
+      b.addEventListener('click', function () {
+        reviewStars = parseInt(b.getAttribute('data-star'), 10);
+        $('reviewError').hidden = true;
+        renderReviewStars();
+        haptic('light');
+      });
+    });
+  }
+
+  function renderReviews() {
+    var p = productById[detailId];
+    if (!p) return;
+    var list = approvedFor(p.id);
+    var mine = myReviews[p.id];
+    var sum = $('reviewSummary');
+    if (list.length) {
+      var avg = avgStars(list);
+      sum.innerHTML = '<span class="review-avg">' + starsHTML(Math.round(avg)) + '</span> ' +
+        '<strong>' + bnNum(avg.toFixed(1)) + '</strong> • ' + bnNum(list.length) + 'টি রিভিউ';
+    } else {
+      sum.textContent = 'এখনো কোনো রিভিউ নেই — প্রথম রিভিউটি আপনিই দিন।';
+    }
+    var box = $('approvedReviews');
+    var html = '';
+    list.forEach(function (r) {
+      html += '<div class="review-item">' +
+        '<div class="review-item-head"><span class="review-stars-display">' + starsHTML(r.stars || 0) + '</span>' +
+        '<span class="review-date">' + esc(fmtShortDate(r.submitted_at)) + '</span></div>' +
+        (r.text ? '<p class="review-text">' + esc(r.text) + '</p>' : '') +
+        '</div>';
+    });
+    box.innerHTML = html;
+    var myBox = $('myReviewBox');
+    var form = $('reviewForm');
+    if (mine) {
+      var approved = list.some(function (r) { return r.review_id === mine.review_id; });
+      myBox.hidden = false;
+      myBox.innerHTML = '<div class="my-review-title">আপনার রিভিউ</div>' +
+        '<div class="review-stars-display">' + starsHTML(mine.stars) + '</div>' +
+        (mine.text ? '<p class="review-text">' + esc(mine.text) + '</p>' : '') +
+        '<p class="review-pending">' + (approved ? 'প্রকাশিত হয়েছে ✓' : 'পাঠানো হয়েছে — অনুমোদনের অপেক্ষায়') + '</p>';
+      form.hidden = true;
+    } else {
+      myBox.hidden = true;
+      form.hidden = false;
+      renderReviewStars();
+    }
+  }
+
+  function reviewSummaryText(r) {
+    var lines = ['⭐ BazarGoo রিভিউ'];
+    lines.push('রিভিউ নং: ' + r.review_id);
+    lines.push('পণ্য: ' + r.product_name);
+    lines.push('পণ্য ID: ' + r.product_id);
+    lines.push('রেটিং: ' + starsHTML(r.stars) + ' (' + r.stars + '/৫)');
+    lines.push('মন্তব্য: ' + (r.text ? r.text : '—'));
+    return lines.join('\n');
+  }
+
+  function submitReview() {
+    var p = productById[detailId];
+    if (!p) return;
+    if (myReviews[p.id]) return; // one review per product per device
+    if (!reviewStars || reviewStars < 1 || reviewStars > 5) {
+      var err = $('reviewError');
+      err.textContent = 'দয়া করে ১–৫টি স্টার দিন।';
+      err.hidden = false;
+      return;
+    }
+    var text = ($('reviewText').value || '').trim().slice(0, 300);
+    var review = {
+      type: 'bazargoo_review',
+      review_id: makeReviewId(),
+      product_id: p.id,
+      product_name: p.name,
+      stars: reviewStars,
+      text: text,
+      user: telegramUser(),
+      submitted_at: new Date().toISOString()
+    };
+    // Save locally first: the buyer's own review shows as pending even
+    // if sendData fails (same copy-fallback pattern as orders).
+    myReviews[p.id] = {
+      review_id: review.review_id,
+      stars: review.stars,
+      text: review.text,
+      submitted_at: review.submitted_at
+    };
+    saveMyReviews();
+    if (tg && tg.sendData) {
+      try { tg.sendData(JSON.stringify(review)); } catch (e) { /* fall through to the copy backup below */ }
+    }
+    // sendData can fail silently (no exception) in some Telegram clients,
+    // so always show the review summary as a backup: if the bot does not
+    // message a confirmation, the buyer can copy the review into the chat.
+    $('reviewSummaryBox').hidden = false;
+    $('reviewSummaryText').textContent = reviewSummaryText(review);
+    reviewStars = 0;
+    $('reviewText').value = '';
+    $('reviewError').hidden = true;
+    renderReviews();
+    showSheet('reviewConfirmSheet', 'reviewConfirm');
+    haptic('medium');
+  }
+
+  function copyReview() {
+    var text = $('reviewSummaryText').textContent;
+    var done = function () {
+      var b = $('copyReviewBtn');
+      b.textContent = 'কপি হয়েছে ✓';
+      setTimeout(function () { b.textContent = 'রিভিউ কপি করুন'; }, 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  }
+
   // ---------- wiring ----------
   function wireEvents() {
     $('searchInput').addEventListener('input', function (e) {
@@ -1173,6 +1372,11 @@
       });
     });
     $('copyOrderBtn').addEventListener('click', copyOrder);
+    $('reviewSubmitBtn').addEventListener('click', submitReview);
+    $('copyReviewBtn').addEventListener('click', copyReview);
+    $('closeReviewConfirmBtn').addEventListener('click', function () {
+      closeSheet('reviewConfirmSheet');
+    });
     $('closeConfirmBtn').addEventListener('click', function () {
       closeSheet('confirmSheet');
       if (tg && tg.close) { /* keep app open; user closes via Telegram UI */ }
@@ -1191,4 +1395,5 @@
   setupTelegram();
   wireEvents();
   loadProducts();
+  loadReviews();
 })();
