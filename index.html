@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>BazarGoo — অনলাইন শপ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img id="logoImg" src="https://cdn.boneek.net/boneek-production-bucket/uploads/images/7dc7cb4e/c19aac04/3854745b/2b3fa4241b0bf405jmzrk2d8tq.png?w=256&q=75" alt="BazarGoo" onerror="this.style.display='none';document.getElementById('logoText').style.display='block'">
+      <span id="logoText" class="logo-text" style="display:none">BazarGoo</span>
+      <div class="brand-sub">
+        <span class="brand-name">BazarGoo</span>
+        <span class="brand-tag">অনলাইন শপ • bazargoo.com</span>
+      </div>
+    </div>
+    <button id="cartBtn" class="cart-btn" type="button" aria-label="কার্ট দেখুন">
+      🛒 <span id="cartCount" class="cart-count" hidden>0</span>
+    </button>
+  </header>
+
+  <div class="toolbar">
+    <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন">
+    <select id="sortSelect" aria-label="সাজান">
+      <option value="default">সাজান: জনপ্রিয়</option>
+      <option value="price-asc">দাম: কম থেকে বেশি</option>
+      <option value="price-desc">দাম: বেশি থেকে কম</option>
+    </select>
+  </div>
+
+  <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
+
+  <main>
+    <div id="grid" class="grid"></div>
+    <div id="emptyState" class="empty" hidden>
+      <p>😕 কিছু পাওয়া যায়নি</p>
+      <p class="empty-sub">অন্য কিছু লিখে খুঁজে দেখুন।</p>
+    </div>
+    <div id="loadError" class="empty" hidden>
+      <p>প্রোডাক্ট লোড করা যায়নি।</p>
+      <p class="empty-sub">ইন্টারনেট চেক করে আবার খুলুন।</p>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    দাম bazargoo.com থেকে নেওয়া • ৮ নভেম্বর ২০২৬
+  </footer>
+
+  <!-- Sticky cart bar (used outside Telegram; inside Telegram the MainButton mirrors it) -->
+  <div id="stickyBar" class="sticky-bar" hidden>
+    <div class="sticky-info">
+      <span id="stickyCount">০টি পণ্য</span>
+      <strong id="stickyTotal">৳০</strong>
+    </div>
+    <button id="stickyCartBtn" class="btn-primary" type="button">কার্ট দেখুন</button>
+  </div>
+
+  <!-- Product detail sheet -->
+  <div id="detailSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="detailSheet" aria-label="বন্ধ করুন">✕</button>
+      <img id="detailImg" class="detail-img" src="" alt="">
+      <div class="sheet-body">
+        <h2 id="detailName"></h2>
+        <div class="detail-price-row">
+          <strong id="detailPrice" class="price"></strong>
+          <span id="detailOldPrice" class="old-price" hidden></span>
+          <span id="detailDiscount" class="discount-badge" hidden></span>
+        </div>
+        <p id="detailCategory" class="detail-cat"></p>
+        <div class="detail-actions">
+          <div id="detailQty" class="qty-control"></div>
+          <a id="detailLink" class="btn-link" href="#" target="_blank" rel="noopener">bazargoo.com-এ দেখুন ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart sheet -->
+  <div id="cartSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="cartSheet" aria-label="বন্ধ করুন">✕</button>
+      <div class="sheet-body">
+        <h2>আপনার কার্ট 🛒</h2>
+        <div id="cartItems"></div>
+        <div id="cartEmpty" class="empty" hidden>
+          <p>কার্ট খালি।</p>
+          <p class="empty-sub">পছন্দের পণ্য যোগ করুন।</p>
+        </div>
+        <div id="cartSummary" class="cart-summary">
+          <div class="summary-row"><span>মোট</span><strong id="cartTotal">৳০</strong></div>
+          <button id="orderBtn" class="btn-primary btn-block" type="button">অর্ডার করুন</button>
+          <p class="order-note">অর্ডারটি দোকানে পাঠানো হবে। দোকান থেকে মেসেজ করে অর্ডারটি কনফার্ম করা হবে।</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation screen -->
+  <div id="confirmSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <div class="sheet-body confirm-body">
+        <div class="confirm-icon">✅</div>
+        <h2>অর্ডার পেয়েছি!</h2>
+        <p>ধন্যবাদ! আপনার অর্ডারটি দোকানে পাঠানো হয়েছে।<br>দোকান থেকে শীঘ্রই মেসেজ করে অর্ডারটি কনফার্ম করা হবে।</p>
+        <div id="orderSummaryBox" class="order-summary" hidden>
+          <h3>অর্ডারের বিবরণ</h3>
+          <pre id="orderSummaryText"></pre>
+          <button id="copyOrderBtn" class="btn-secondary btn-block" type="button">অর্ডার কপি করুন</button>
+          <p class="order-note">টেলিগ্রামে খুললে অর্ডারটি সরাসরি দোকানে পাঠানো যাবে।</p>
+        </div>
+        <button id="closeConfirmBtn" class="btn-primary btn-block" type="button">বন্ধ করুন</button>
+      </div>
+    </div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
