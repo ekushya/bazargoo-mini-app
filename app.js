@@ -67,7 +67,7 @@
   var searchQuery = '';
   var sortMode = 'default';
   var cart = loadCart(); // { id: qty }
-  var openSheet = null; // 'detail' | 'cart' | 'confirm' | null
+  var openSheet = null; // 'detail' | 'cart' | 'confirm' | 'orders' | null
   var detailId = null;
   var WISH_KEY = 'bazargoo_wishlist_v1';
   var wishlist = loadWishlist(); // [ id, ... ]
@@ -216,6 +216,44 @@
     else couponNote('');
   }
 
+  // ---------- order history (per-device only) ----------
+  // "আমার অর্ডার" is stored in localStorage on THIS device only. There is
+  // no server: orders placed on another device or after clearing app data
+  // will not appear here, and the app cannot know the shop's confirmation
+  // or shipping status — every saved order shows "পাঠানো হয়েছে".
+  var ORDERS_KEY = 'bazargoo_orders_v1';
+  var MAX_ORDERS = 20;
+  var expandedOrderId = null;
+  function loadOrders() {
+    try {
+      var o = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+      return Array.isArray(o) ? o : [];
+    } catch (e) { return []; }
+  }
+  function saveOrderRecord(rec) {
+    var list = loadOrders();
+    list.unshift(rec);
+    if (list.length > MAX_ORDERS) list = list.slice(0, MAX_ORDERS);
+    try { localStorage.setItem(ORDERS_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function makeOrderId() {
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = ('0' + (now.getMonth() + 1)).slice(-2);
+    var d = ('0' + now.getDate()).slice(-2);
+    // No 0/O/1/I — avoids look-alike confusion when a buyer reads the id.
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var s = '';
+    for (var i = 0; i < 4; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return 'BG-' + y + m + d + '-' + s;
+  }
+  function fmtShortDate(iso) {
+    var MONTHS = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগ', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return bnNum(d.getDate()) + ' ' + MONTHS[d.getMonth()] + ' ' + bnNum(d.getFullYear());
+  }
+
   // ---------- district -> shipping ----------
   function populateDistricts() {
     var sel = $('buyerDistrict');
@@ -274,7 +312,7 @@
       if (cartCount() === 0) { mb.hide(); return; }
       mb.setText('অর্ডার করুন • ' + fmt(grandTotal()));
       mb.show();
-    } else if (openSheet === 'detail' || openSheet === 'confirm') {
+    } else if (openSheet === 'detail' || openSheet === 'confirm' || openSheet === 'orders') {
       mb.hide();
     } else if (cartCount() > 0) {
       mb.setText('কার্ট দেখুন • ' + fmt(cartTotal()));
@@ -298,6 +336,7 @@
     if (openSheet === 'detail') closeSheet('detailSheet');
     else if (openSheet === 'cart') closeSheet('cartSheet');
     else if (openSheet === 'confirm') closeSheet('confirmSheet');
+    else if (openSheet === 'orders') closeSheet('ordersSheet');
   }
 
   // ---------- data ----------
@@ -772,6 +811,7 @@
   function closeSheet(id) {
     $(id).hidden = true;
     if (openSheet === 'detail') detailId = null;
+    if (id === 'ordersSheet') expandedOrderId = null;
     openSheet = null;
     updateBackButton();
     updateMainButton();
@@ -815,6 +855,84 @@
     showSheet('cartSheet', 'cart');
   }
 
+  // ---------- order history UI ----------
+  function renderOrders() {
+    var list = loadOrders();
+    var box = $('ordersList');
+    $('ordersEmpty').hidden = list.length !== 0;
+    var html = '';
+    list.forEach(function (o) {
+      var first = (o.items && o.items[0]) ? o.items[0].name : '';
+      var expanded = expandedOrderId === o.order_id;
+      html += '<div class="order-row' + (expanded ? ' expanded' : '') + '" data-order="' + esc(o.order_id) + '">' +
+        '<div class="order-head">' +
+          '<div class="order-head-main">' +
+            '<div class="order-id">' + esc(o.order_id) + '</div>' +
+            '<div class="order-meta">' + esc(fmtShortDate(o.ordered_at)) + ' • ' + bnNum(o.item_count) + 'টি পণ্য' + (first ? ' • ' + esc(first) : '') + '</div>' +
+          '</div>' +
+          '<div class="order-head-side"><strong>' + fmt(o.total) + '</strong><span class="order-status">পাঠানো হয়েছে</span></div>' +
+        '</div>';
+      if (expanded) {
+        html += '<div class="order-detail">';
+        (o.items || []).forEach(function (it) {
+          html += '<div class="summary-row small"><span>' + esc(it.name) + ' × ' + bnNum(it.qty) + '</span><span>' + fmt(it.subtotal) + '</span></div>';
+        });
+        html += '<div class="summary-row small"><span>পণ্যের মোট</span><span>' + fmt(o.subtotal) + '</span></div>';
+        if (o.discount) {
+          html += '<div class="summary-row small"><span>ছাড় (' + esc(o.coupon || 'BAZAR5') + ' — ৫%)</span><span class="order-discount">−' + fmt(o.discount) + '</span></div>';
+        }
+        html += '<div class="summary-row small"><span>ডেলিভারি চার্জ</span><span>' + fmt(o.shipping_fee) + '</span></div>' +
+          '<div class="summary-row"><span>মোট</span><strong>' + fmt(o.total) + '</strong></div>';
+        if (o.district) html += '<div class="order-district">জেলা: ' + esc(o.district) + '</div>';
+        html += '<button class="btn-secondary btn-block order-rebuy" type="button" data-rebuy="' + esc(o.order_id) + '">আবার কিনুন</button></div>';
+      }
+      html += '</div>';
+    });
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll('.order-head'), function (h) {
+      h.addEventListener('click', function () {
+        var id = h.parentNode.getAttribute('data-order');
+        expandedOrderId = (expandedOrderId === id) ? null : id;
+        renderOrders();
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rebuy]'), function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        rebuyOrder(b.getAttribute('data-rebuy'));
+      });
+    });
+  }
+
+  function rebuyOrder(orderId) {
+    var list = loadOrders();
+    var found = null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].order_id === orderId) { found = list[i]; break; }
+    }
+    if (!found) return;
+    var added = 0;
+    (found.items || []).forEach(function (it) {
+      if (it.id && productById[it.id]) {
+        cart[it.id] = (cart[it.id] || 0) + it.qty;
+        added++;
+      }
+    });
+    if (!added) return; // nothing from this order is sold anymore
+    saveCart();
+    renderGrid();
+    updateCartUI();
+    haptic();
+    closeSheet('ordersSheet');
+    openCartSheet();
+  }
+
+  function openOrdersSheet() {
+    expandedOrderId = null;
+    renderOrders();
+    showSheet('ordersSheet', 'orders');
+  }
+
   // ---------- order ----------
   function buildOrder(delivery) {
     var items = Object.keys(cart).map(function (id) {
@@ -830,6 +948,7 @@
     var disc = discountAmount();
     var order = {
       type: 'bazargoo_order',
+      order_id: makeOrderId(),
       store: 'Bazar Goo',
       currency: 'BDT',
       items: items,
@@ -853,7 +972,9 @@
   }
 
   function orderSummaryText(order) {
-    var lines = ['🛍️ BazarGoo অর্ডার', ''];
+    var lines = ['🛍️ BazarGoo অর্ডার'];
+    if (order.order_id) lines.push('অর্ডার নং: ' + order.order_id);
+    lines.push('');
     order.items.forEach(function (it) {
       lines.push('• ' + it.name + ' × ' + it.qty + ' — ৳' + it.subtotal.toLocaleString('en-US'));
     });
@@ -879,6 +1000,24 @@
     if (!delivery) return;
     saveDelivery(delivery);
     var order = buildOrder(delivery);
+    // Save a compact record for "আমার অর্ডার" (per-device only, no
+    // name/phone/address — the full order already went to the shop).
+    // Stored item ids (not in the spec's field list) let "আবার কিনুন"
+    // match products reliably; matching by name alone would be fragile.
+    saveOrderRecord({
+      order_id: order.order_id,
+      ordered_at: order.ordered_at,
+      items: order.items.map(function (it) {
+        return { id: it.id, name: it.name, qty: it.qty, subtotal: it.subtotal };
+      }),
+      subtotal: order.subtotal,
+      discount: order.discount || 0,
+      coupon: order.coupon || null,
+      shipping_fee: order.delivery.shipping_fee,
+      total: order.total,
+      district: order.delivery.district,
+      item_count: order.item_count
+    });
     // First-order coupon: mark BAZAR5 used on this device now that the
     // order is built (per-device only — see the coupon comment above).
     // The order itself still carries coupon + discount.
@@ -937,6 +1076,7 @@
       renderGrid();
     });
     $('cartBtn').addEventListener('click', openCartSheet);
+    $('ordersBtn').addEventListener('click', openOrdersSheet);
     $('stickyCartBtn').addEventListener('click', openCartSheet);
     $('orderBtn').addEventListener('click', placeOrder);
     $('applyCouponBtn').addEventListener('click', applyCoupon);
