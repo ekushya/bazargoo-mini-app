@@ -7,6 +7,9 @@
  * Dhaka ৳60 / Outside Dhaka ৳120, payment Cash on Delivery only.
  * Sales features (8 Nov 2026): product share, today's best deals
  * (top 8 by real discount %), wishlist (localStorage).
+ * First-order coupon (Angela, 8 Nov 2026): BAZAR5 = 5% off the first
+ * order. Enforcement is PER-DEVICE only (localStorage) — there is no
+ * server-side check, so do not claim the coupon cannot be reused.
  */
 (function () {
   'use strict';
@@ -68,6 +71,15 @@
   var detailId = null;
   var WISH_KEY = 'bazargoo_wishlist_v1';
   var wishlist = loadWishlist(); // [ id, ... ]
+  // First-order coupon (Angela, 8 Nov 2026): BAZAR5 = 5% off the first
+  // order. Enforcement is PER-DEVICE only (localStorage): a buyer who
+  // clears app data or switches devices could use it again — the bot
+  // trusts whatever the app sends, there is no server-side check.
+  var COUPON_CODE = 'BAZAR5';
+  var COUPON_PCT = 0.05;
+  var COUPON_APPLIED_KEY = 'bazargoo_coupon_applied_v1';
+  var COUPON_USED_KEY = 'bazargoo_coupons_used_v1';
+  var appliedCoupon = loadAppliedCoupon(); // '' or 'BAZAR5'
 
   // ---------- helpers ----------
   function $(id) { return document.getElementById(id); }
@@ -129,7 +141,80 @@
     return r ? r.value : 'inside';
   }
   function shippingFee() { return SHIPPING[deliveryZone()] || 60; }
-  function grandTotal() { return cartTotal() + shippingFee(); }
+  function discountAmount() {
+    return appliedCoupon === COUPON_CODE ? Math.round(cartTotal() * COUPON_PCT) : 0;
+  }
+  function grandTotal() { return cartTotal() - discountAmount() + shippingFee(); }
+
+  // ---------- first-order coupon ----------
+  function loadUsedCoupons() {
+    try {
+      var u = JSON.parse(localStorage.getItem(COUPON_USED_KEY) || '[]');
+      return Array.isArray(u) ? u.filter(function (c) { return typeof c === 'string'; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveUsedCoupons(list) {
+    try { localStorage.setItem(COUPON_USED_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function loadAppliedCoupon() {
+    try {
+      var c = localStorage.getItem(COUPON_APPLIED_KEY) || '';
+      if (c === COUPON_CODE && loadUsedCoupons().indexOf(COUPON_CODE) === -1) return c;
+    } catch (e) {}
+    return '';
+  }
+  function saveAppliedCoupon() {
+    try { localStorage.setItem(COUPON_APPLIED_KEY, appliedCoupon); } catch (e) {}
+  }
+  function couponNote(text, kind, showRemove) {
+    var n = $('couponNote');
+    if (!n) return;
+    n.classList.remove('coupon-note-ok', 'coupon-note-err');
+    if (!text) { n.hidden = true; n.textContent = ''; return; }
+    n.hidden = false;
+    n.classList.add(kind === 'ok' ? 'coupon-note-ok' : 'coupon-note-err');
+    n.textContent = text;
+    if (showRemove) {
+      var rm = document.createElement('span');
+      rm.className = 'coupon-remove';
+      rm.textContent = 'কুপন সরান';
+      rm.addEventListener('click', function () { removeCoupon(); });
+      n.appendChild(document.createTextNode(' '));
+      n.appendChild(rm);
+    }
+  }
+  function applyCoupon() {
+    var input = $('couponInput');
+    var code = (input ? input.value : '').trim().toUpperCase();
+    if (!code) return; // empty: do nothing
+    if (code !== COUPON_CODE) { couponNote('ভুল কুপন কোড।', 'err'); return; }
+    if (loadUsedCoupons().indexOf(COUPON_CODE) !== -1) {
+      couponNote('এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।', 'err');
+      return;
+    }
+    if (cartCount() === 0) { couponNote('প্রথমে কার্টে পণ্য যোগ করুন।', 'err'); return; }
+    appliedCoupon = COUPON_CODE;
+    saveAppliedCoupon();
+    if (input) input.value = COUPON_CODE;
+    couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
+    updateTotals();
+  }
+  function removeCoupon() {
+    appliedCoupon = '';
+    saveAppliedCoupon();
+    var input = $('couponInput');
+    if (input) input.value = '';
+    couponNote('');
+    updateTotals();
+  }
+  function restoreCoupon() {
+    // Re-read the applied coupon when the cart opens (per-device only).
+    appliedCoupon = loadAppliedCoupon();
+    var input = $('couponInput');
+    if (input) input.value = appliedCoupon;
+    if (appliedCoupon) couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
+    else couponNote('');
+  }
 
   // ---------- district -> shipping ----------
   function populateDistricts() {
@@ -501,12 +586,18 @@
         saveCart(); haptic(); renderGrid(); updateCartUI(); renderCartItems();
       });
     });
+    restoreCoupon();
     updateTotals();
   }
 
   function updateTotals() {
     $('subtotalVal').textContent = fmt(cartTotal());
     $('shippingVal').textContent = fmt(shippingFee());
+    var disc = discountAmount();
+    var row = $('discountRow');
+    if (row) row.hidden = disc <= 0;
+    var dv = $('discountVal');
+    if (dv) dv.textContent = '−' + fmt(disc);
     $('grandTotalVal').textContent = fmt(grandTotal());
     updateMainButton();
   }
@@ -736,7 +827,8 @@
       if (u) user = { id: u.id, username: u.username || null, first_name: u.first_name || null };
     } catch (e) {}
     var fee = shippingFee();
-    return {
+    var disc = discountAmount();
+    var order = {
       type: 'bazargoo_order',
       store: 'Bazar Goo',
       currency: 'BDT',
@@ -751,11 +843,13 @@
         shipping_fee: fee,
         payment: 'cod'
       },
-      total: cartTotal() + fee,
+      total: cartTotal() - disc + fee,
       item_count: cartCount(),
       user: user,
       ordered_at: new Date().toISOString()
     };
+    if (disc > 0) { order.coupon = COUPON_CODE; order.discount = disc; }
+    return order;
   }
 
   function orderSummaryText(order) {
@@ -765,6 +859,9 @@
     });
     var d = order.delivery || {};
     lines.push('', 'পণ্যের মোট: ৳' + (order.subtotal || order.total).toLocaleString('en-US'));
+    if (order.discount) {
+      lines.push('ছাড় (BAZAR5 — প্রথম অর্ডারে ৫%): −৳' + order.discount.toLocaleString('en-US'));
+    }
     if (d.shipping_fee !== undefined) {
       lines.push('ডেলিভারি (' + (d.shipping_zone === 'outside' ? 'ঢাকার বাইরে' : 'ঢাকার ভেতরে') + '): ৳' + d.shipping_fee.toLocaleString('en-US'));
     }
@@ -782,6 +879,15 @@
     if (!delivery) return;
     saveDelivery(delivery);
     var order = buildOrder(delivery);
+    // First-order coupon: mark BAZAR5 used on this device now that the
+    // order is built (per-device only — see the coupon comment above).
+    // The order itself still carries coupon + discount.
+    if (appliedCoupon === COUPON_CODE) {
+      var used = loadUsedCoupons();
+      if (used.indexOf(COUPON_CODE) === -1) { used.push(COUPON_CODE); saveUsedCoupons(used); }
+      appliedCoupon = '';
+      saveAppliedCoupon();
+    }
     if (tg && tg.sendData) {
       try { tg.sendData(JSON.stringify(order)); } catch (e) { /* fall through to the copy backup below */ }
     }
@@ -833,6 +939,10 @@
     $('cartBtn').addEventListener('click', openCartSheet);
     $('stickyCartBtn').addEventListener('click', openCartSheet);
     $('orderBtn').addEventListener('click', placeOrder);
+    $('applyCouponBtn').addEventListener('click', applyCoupon);
+    $('couponInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); applyCoupon(); }
+    });
     Array.prototype.forEach.call(document.querySelectorAll('input[name="shipZone"]'), function (r) {
       r.addEventListener('change', function () { markSelectedZone(); updateTotals(); });
     });
