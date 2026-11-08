@@ -5,6 +5,8 @@
  * Checkout: delivery form (name auto-filled from Telegram, phone via
  * Telegram contact share or typed, address typed), shipping Inside
  * Dhaka ৳60 / Outside Dhaka ৳120, payment Cash on Delivery only.
+ * Sales features (8 Nov 2026): product share, today's best deals
+ * (top 8 by real discount %), wishlist (localStorage).
  */
 (function () {
   'use strict';
@@ -64,6 +66,8 @@
   var cart = loadCart(); // { id: qty }
   var openSheet = null; // 'detail' | 'cart' | 'confirm' | null
   var detailId = null;
+  var WISH_KEY = 'bazargoo_wishlist_v1';
+  var wishlist = loadWishlist(); // [ id, ... ]
 
   // ---------- helpers ----------
   function $(id) { return document.getElementById(id); }
@@ -85,6 +89,26 @@
   }
   function saveCart() {
     try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
+  }
+  // ---------- wishlist ----------
+  function loadWishlist() {
+    try {
+      var w = JSON.parse(localStorage.getItem(WISH_KEY) || '[]');
+      return Array.isArray(w) ? w.filter(function (id) { return typeof id === 'string'; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveWishlist() {
+    try { localStorage.setItem(WISH_KEY, JSON.stringify(wishlist)); } catch (e) {}
+  }
+  function isWished(id) { return wishlist.indexOf(id) !== -1; }
+  function toggleWish(id) {
+    var i = wishlist.indexOf(id);
+    if (i === -1) wishlist.push(id); else wishlist.splice(i, 1);
+    saveWishlist();
+    haptic();
+    renderChips();
+    renderGrid();
+    if (openSheet === 'detail' && detailId === id) renderDetailWish();
   }
   // ---------- delivery (checkout v2) ----------
   function loadDelivery() {
@@ -199,6 +223,7 @@
         products = data.products || [];
         products.forEach(function (p) { productById[p.id] = p; });
         renderChips();
+        renderDeals();
         renderGrid();
         updateCartUI();
       })
@@ -220,7 +245,9 @@
 
   function renderChips() {
     var info = getCategories();
-    var html = '<button class="chip' + (activeCategory === 'all' ? ' active' : '') +
+    var html = '<button class="chip' + (activeCategory === '__wishlist' ? ' active' : '') +
+      '" data-cat="__wishlist" type="button">❤️ পছন্দের (' + wishlist.length + ')</button>' +
+      '<button class="chip' + (activeCategory === 'all' ? ' active' : '') +
       '" data-cat="all" type="button">সব (' + products.length + ')</button>';
     info.list.forEach(function (c) {
       var label = CATEGORY_BN[c] || c;
@@ -240,7 +267,8 @@
   function filteredProducts() {
     var q = searchQuery.trim().toLowerCase();
     var list = products.filter(function (p) {
-      if (activeCategory !== 'all' && (p.category || 'অন্যান্য') !== activeCategory) return false;
+      if (activeCategory === '__wishlist' && wishlist.indexOf(p.id) === -1) return false;
+      if (activeCategory !== 'all' && activeCategory !== '__wishlist' && (p.category || 'অন্যান্য') !== activeCategory) return false;
       if (q && p.name.toLowerCase().indexOf(q) === -1 &&
           (p.category || '').toLowerCase().indexOf(q) === -1) return false;
       return true;
@@ -264,14 +292,26 @@
   function renderGrid() {
     var list = filteredProducts();
     var grid = $('grid');
-    $('emptyState').hidden = list.length !== 0;
+    var empty = $('emptyState');
+    empty.hidden = list.length !== 0;
+    if (list.length === 0 && activeCategory === '__wishlist') {
+      empty.querySelector('p').textContent = '💔 পছন্দের তালিকা খালি।';
+      empty.querySelector('.empty-sub').textContent = 'হার্ট চেপে পছন্দের পণ্য যোগ করুন।';
+    } else {
+      empty.querySelector('p').textContent = '😕 কিছু পাওয়া যায়নি';
+      empty.querySelector('.empty-sub').textContent = 'অন্য কিছু লিখে খুঁজে দেখুন।';
+    }
     var html = '';
     list.forEach(function (p) {
       var pct = discountPct(p);
+      var wished = isWished(p.id);
       html += '<article class="card" data-open="' + esc(p.id) + '">' +
+        '<div class="card-img-wrap">' +
         (p.image
           ? '<img class="card-img" src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;card-img-placeholder&quot;>🛍️</div>\'">'
           : '<div class="card-img-placeholder">🛍️</div>') +
+        '<button class="wish-btn' + (wished ? ' wished' : '') + '" type="button" data-wish="' + esc(p.id) + '" aria-label="পছন্দের তালিকায় যোগ করুন">' + (wished ? '❤️' : '♡') + '</button>' +
+        '</div>' +
         '<div class="card-body">' +
         '<div class="card-name">' + esc(p.name) + '</div>' +
         '<div class="card-price-row"><span class="price">' + fmt(p.price) + '</span>' +
@@ -279,6 +319,7 @@
         (pct ? '<span class="discount-badge">-' + pct + '%</span>' : '') + '</div>' +
         '<div class="card-cat">' + esc(CATEGORY_BN[p.category] || p.category || '') + '</div>' +
         qtyControlHTML(p.id, true) +
+        '<button class="share-btn" type="button" data-share="' + esc(p.id) + '">↗ শেয়ার</button>' +
         '</div></article>';
     });
     grid.innerHTML = html;
@@ -288,11 +329,21 @@
   function bindCardEvents(root) {
     Array.prototype.forEach.call(root.querySelectorAll('[data-open]'), function (el) {
       el.addEventListener('click', function (ev) {
-        if (ev.target.closest('[data-add],[data-inc],[data-dec]')) return;
+        if (ev.target.closest('[data-add],[data-inc],[data-dec],[data-share],[data-wish]')) return;
         openDetail(el.getAttribute('data-open'));
       });
     });
     bindQtyButtons(root);
+    bindShareWishButtons(root);
+  }
+
+  function bindShareWishButtons(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('[data-share]'), function (b) {
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); shareProduct(b.getAttribute('data-share'), b); });
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('[data-wish]'), function (b) {
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); toggleWish(b.getAttribute('data-wish')); });
+    });
   }
 
   function bindQtyButtons(root) {
@@ -305,6 +356,90 @@
     Array.prototype.forEach.call(root.querySelectorAll('[data-dec]'), function (b) {
       b.addEventListener('click', function (ev) { ev.stopPropagation(); changeQty(b.getAttribute('data-dec'), -1); });
     });
+  }
+
+  // ---------- share ----------
+  function shareText(p) {
+    return p.name + ' — ' + fmt(p.price) + '\n' + (p.url || 'https://bazargoo.com');
+  }
+  function flashCopied(btn) {
+    if (!btn) return;
+    var prev = btn.innerHTML;
+    btn.innerHTML = 'কপি হয়েছে ✓';
+    setTimeout(function () { btn.innerHTML = prev; }, 2000);
+  }
+  function copyShareText(text, btn) {
+    var done = function () { flashCopied(btn); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  }
+  function shareProduct(id, btn) {
+    var p = productById[id];
+    if (!p) return;
+    var text = shareText(p);
+    // 1) Telegram inline share (needs inline mode on the bot; throws
+    //    WebAppInlineModeDisabled when it is off — then fall through).
+    if (tg && tg.switchInlineQuery) {
+      try { tg.switchInlineQuery(text); return; } catch (e) { /* fall through */ }
+    }
+    // 2) Telegram's native share sheet — works without inline mode.
+    if (tg && tg.openTelegramLink) {
+      try {
+        var url = 'https://t.me/share/url?url=' + encodeURIComponent(p.url || 'https://bazargoo.com') +
+          '&text=' + encodeURIComponent(p.name + ' — ' + fmt(p.price));
+        tg.openTelegramLink(url);
+        return;
+      } catch (e) { /* fall through to copy */ }
+    }
+    // 3) Copy "name — ৳price" + real bazargoo.com URL to the clipboard.
+    copyShareText(text, btn);
+  }
+
+  // ---------- today's best deals ----------
+  function topDeals() {
+    return products
+      .filter(function (p) { return discountPct(p) > 0; })
+      .sort(function (a, b) {
+        var d = discountPct(b) - discountPct(a);
+        if (d) return d;
+        return (b.old_price - b.price) - (a.old_price - a.price);
+      })
+      .slice(0, 8);
+  }
+  function renderDeals() {
+    var deals = topDeals();
+    var sec = $('dealsSection');
+    if (!deals.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+    var html = '';
+    deals.forEach(function (p) {
+      var pct = discountPct(p);
+      html += '<article class="deal-card" data-deal="' + esc(p.id) + '">' +
+        (p.image
+          ? '<img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;card-img-placeholder&quot;>🛍️</div>\'">'
+          : '<div class="card-img-placeholder">🛍️</div>') +
+        '<div class="deal-body">' +
+        '<div class="deal-name">' + esc(p.name) + '</div>' +
+        '<div class="deal-price-row"><span class="price">' + fmt(p.price) + '</span>' +
+        (p.old_price ? '<span class="old-price">' + fmt(p.old_price) + '</span>' : '') +
+        (pct ? '<span class="discount-badge">-' + pct + '%</span>' : '') + '</div>' +
+        '</div></article>';
+    });
+    $('dealsRow').innerHTML = html;
+    Array.prototype.forEach.call($('dealsRow').querySelectorAll('[data-deal]'), function (el) {
+      el.addEventListener('click', function () { openDetail(el.getAttribute('data-deal')); });
+    });
+  }
+
+  // ---------- detail wishlist ----------
+  function renderDetailWish() {
+    var btn = $('detailWishBtn');
+    if (!btn || !detailId) return;
+    var wished = isWished(detailId);
+    btn.textContent = wished ? '❤️ পছন্দের তালিকায় আছে' : '♡ পছন্দের তালিকায় যোগ করুন';
+    btn.classList.toggle('wished', wished);
+    btn.onclick = function () { toggleWish(detailId); };
   }
 
   // ---------- cart ----------
@@ -567,6 +702,9 @@
       if (tg && tg.openLink) { ev.preventDefault(); tg.openLink(p.url); }
     }, { once: true });
     renderDetailQty();
+    renderDetailWish();
+    var shareBtn = $('detailShareBtn');
+    shareBtn.onclick = function () { shareProduct(detailId, shareBtn); };
     showSheet('detailSheet', 'detail');
   }
 
