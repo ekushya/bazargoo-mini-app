@@ -142,8 +142,15 @@
           </label>
           <p class="option-sub">Pay with cash upon delivery of your order.</p>
 
+          <div class="coupon-row">
+            <input id="couponInput" type="text" placeholder="কুপন কোড (যেমন: BAZAR5)" autocomplete="off" autocapitalize="characters">
+            <button id="applyCouponBtn" class="btn-apply" type="button">প্রয়োগ করুন</button>
+          </div>
+          <p id="couponNote" class="coupon-note" hidden></p>
+
           <div class="cart-summary">
             <div class="summary-row small"><span>পণ্যের মোট</span><span id="subtotalVal">৳০</span></div>
+            <div class="summary-row small" id="discountRow" hidden><span>ছাড় (BAZAR5 — ৫%)</span><span id="discountVal">−৳০</span></div>
             <div class="summary-row small"><span>ডেলিভারি চার্জ</span><span id="shippingVal">৳৬০</span></div>
             <div class="summary-row"><span>মোট</span><strong id="grandTotalVal">৳০</strong></div>
           </div>
@@ -173,6 +180,6 @@
     </div>
   </div>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
