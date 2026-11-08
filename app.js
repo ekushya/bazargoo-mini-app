@@ -348,6 +348,9 @@
     if (addrEl && !addrEl.value) addrEl.value = saved.address || '';
     var radio = document.querySelector('input[name="shipZone"][value="' + (saved.zone || 'inside') + '"]');
     if (radio) { radio.checked = true; markSelectedZone(); }
+    // The "name taken from Telegram" hint is only true inside Telegram.
+    var hint = $('tgNameHint');
+    if (hint) hint.hidden = !IN_TELEGRAM;
     // Telegram does not put the phone number in initData — offer the native
     // contact-share button when the client supports requestContact (6.9+).
     var btn = $('fillPhoneBtn');
