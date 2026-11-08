@@ -59,6 +59,11 @@
     <div id="recentRow" class="deals-row"></div>
   </section>
 
+  <section id="pdfSection" class="deals" hidden>
+    <h2>📚 PDF</h2>
+    <div id="pdfRow" class="deals-row"></div>
+  </section>
+
   <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
 
   <main>
@@ -252,6 +257,18 @@
     </div>
   </div>
 
-<script src="app.js?v=9"></script>
+  <!-- ZERO payment info sheet -->
+  <div id="pdfZeroSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="pdfZeroSheet" aria-label="বন্ধ করুন">✕</button>
+      <div class="sheet-body">
+        <h2>⛓️ ZERO দিয়ে কিনুন</h2>
+        <div id="pdfZeroBody"></div>
+        <button id="pdfZeroBotBtn" class="btn-primary btn-block" type="button">বটে গিয়ে txid পাঠান</button>
+      </div>
+    </div>
+  </div>
+
+<script src="app.js?v=10"></script>
 </body>
 </html>
