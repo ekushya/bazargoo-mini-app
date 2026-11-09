@@ -42,7 +42,7 @@
       "id": "shopping-guide",
       "price_stars": 5,
       "price_zero": 5,
-      "source_file": "payments/pdfs/shopping-guide.pdf",
+      "source_file": "payments/pdfs/কেনাকাটা/shopping-guide.pdf",
       "title": "BazarGoo কেনাকাটা গাইড",
       "en": true,
       "category": "কেনাকাটা"
@@ -55,7 +55,7 @@
       "id": "safe-shopping-guide",
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/safe-shopping-guide.pdf",
+      "source_file": "payments/pdfs/কেনাকাটা/safe-shopping-guide.pdf",
       "title": "অনলাইন কেনাকাটায় প্রতারণা এড়ানোর ১০ উপায়",
       "en": true,
       "category": "কেনাকাটা"
@@ -63,15 +63,15 @@
     {
       "description": "Bazar Goo দোকান পরিচিতি — কীভাবে অর্ডার করবেন, ডেলিভারি চার্জ ও Cash on Delivery।",
       "file_id": null,
-      "file_url": "payments/pdfs/store-guide.pdf",
+      "file_url": "payments/pdfs/কেনাকাটা/store-guide.pdf",
       "free": true,
       "id": "store-guide",
       "price_stars": null,
       "price_zero": null,
-      "source_file": "payments/pdfs/store-guide.pdf",
+      "source_file": "payments/pdfs/কেনাকাটা/store-guide.pdf",
       "title": "BazarGoo দোকান পরিচিতি",
       "en": true,
-      "file_url_en": "payments/pdfs/store-guide-en.pdf",
+      "file_url_en": "payments/pdfs/কেনাকাটা/store-guide-en.pdf",
       "category": "কেনাকাটা"
     },
     {
@@ -83,7 +83,7 @@
       "id": "ai-earning-guide",
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-earning-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-earning-guide.pdf",
       "title": "AI দিয়ে আয় গাইডলাইন",
       "category": "AI টিউটোরিয়াল"
     },
@@ -95,12 +95,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-muse-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-muse-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-muse-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-muse-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-muse-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-muse-guide-preview-en.pdf"
     },
     {
       "id": "ai-gemini-guide",
@@ -110,12 +110,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-gemini-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-gemini-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-gemini-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-gemini-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-gemini-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-gemini-guide-preview-en.pdf"
     },
     {
       "id": "ai-chatgpt-guide",
@@ -125,12 +125,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-chatgpt-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-chatgpt-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-chatgpt-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-chatgpt-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-chatgpt-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-chatgpt-guide-preview-en.pdf"
     },
     {
       "id": "ai-grok-guide",
@@ -140,12 +140,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-grok-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-grok-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-grok-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-grok-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-grok-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-grok-guide-preview-en.pdf"
     },
     {
       "id": "ai-claude-guide",
@@ -155,12 +155,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-claude-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-claude-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-claude-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-claude-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-claude-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-claude-guide-preview-en.pdf"
     },
     {
       "id": "ai-deepseek-guide",
@@ -170,12 +170,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-deepseek-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-deepseek-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-deepseek-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-deepseek-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-deepseek-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-deepseek-guide-preview-en.pdf"
     },
     {
       "id": "ai-google-flow-guide",
@@ -185,12 +185,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-google-flow-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-google-flow-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-google-flow-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-google-flow-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-google-flow-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-google-flow-guide-preview-en.pdf"
     },
     {
       "id": "ai-flowmusic-guide",
@@ -200,12 +200,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-flowmusic-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-flowmusic-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-flowmusic-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-flowmusic-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-flowmusic-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-flowmusic-guide-preview-en.pdf"
     },
     {
       "id": "ai-copilot-guide",
@@ -215,12 +215,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-copilot-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-copilot-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-copilot-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-copilot-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-copilot-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-copilot-guide-preview-en.pdf"
     },
     {
       "id": "ai-perplexity-guide",
@@ -230,12 +230,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-perplexity-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-perplexity-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-perplexity-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-perplexity-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-perplexity-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-perplexity-guide-preview-en.pdf"
     },
     {
       "id": "ai-midjourney-guide",
@@ -245,12 +245,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-midjourney-guide.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-midjourney-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-midjourney-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-midjourney-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-midjourney-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-midjourney-guide-preview-en.pdf"
     },
     {
       "id": "rel-fatiha",
@@ -261,7 +261,7 @@
       "reward_only": true,
       "price_stars": null,
       "price_zero": null,
-      "source_file": "payments/pdfs/rel-fatiha.pdf",
+      "source_file": "payments/pdfs/ধর্মীয় বই/rel-fatiha.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ধর্মীয় বই"
@@ -275,7 +275,7 @@
       "reward_only": true,
       "price_stars": null,
       "price_zero": null,
-      "source_file": "payments/pdfs/rel-ikhlas.pdf",
+      "source_file": "payments/pdfs/ধর্মীয় বই/rel-ikhlas.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ধর্মীয় বই"
@@ -289,7 +289,7 @@
       "reward_only": true,
       "price_stars": null,
       "price_zero": null,
-      "source_file": "payments/pdfs/rel-falaq-nas.pdf",
+      "source_file": "payments/pdfs/ধর্মীয় বই/rel-falaq-nas.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ধর্মীয় বই"
@@ -303,7 +303,7 @@
       "reward_only": true,
       "price_stars": null,
       "price_zero": null,
-      "source_file": "payments/pdfs/rel-istighfar.pdf",
+      "source_file": "payments/pdfs/ধর্মীয় বই/rel-istighfar.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ধর্মীয় বই"
@@ -316,12 +316,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-prompt-library.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-prompt-library.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-prompt-library-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-prompt-library-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-prompt-library-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-prompt-library-preview-en.pdf"
     },
     {
       "id": "ai-freelancing-start",
@@ -331,12 +331,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-freelancing-start.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-freelancing-start.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-freelancing-start-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-freelancing-start-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-freelancing-start-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-freelancing-start-preview-en.pdf"
     },
     {
       "id": "ai-product-photos",
@@ -346,12 +346,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-product-photos.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-product-photos.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-product-photos-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-product-photos-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-product-photos-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-product-photos-preview-en.pdf"
     },
     {
       "id": "ai-video-workflow",
@@ -361,12 +361,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ai-video-workflow.pdf",
+      "source_file": "payments/pdfs/AI টিউটোরিয়াল/ai-video-workflow.pdf",
       "file_id": null,
       "file_url": null,
       "category": "AI টিউটোরিয়াল",
-      "preview_url": "payments/pdfs/ai-video-workflow-preview.pdf",
-      "preview_url_en": "payments/pdfs/ai-video-workflow-preview-en.pdf"
+      "preview_url": "payments/pdfs/AI টিউটোরিয়াল/ai-video-workflow-preview.pdf",
+      "preview_url_en": "payments/pdfs/AI টিউটোরিয়াল/ai-video-workflow-preview-en.pdf"
     },
     {
       "id": "telegram-miniapp-business",
@@ -376,12 +376,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/telegram-miniapp-business.pdf",
+      "source_file": "payments/pdfs/অনলাইন আয়/telegram-miniapp-business.pdf",
       "file_id": null,
       "file_url": null,
       "category": "অনলাইন আয়",
-      "preview_url": "payments/pdfs/telegram-miniapp-business-preview.pdf",
-      "preview_url_en": "payments/pdfs/telegram-miniapp-business-preview-en.pdf"
+      "preview_url": "payments/pdfs/অনলাইন আয়/telegram-miniapp-business-preview.pdf",
+      "preview_url_en": "payments/pdfs/অনলাইন আয়/telegram-miniapp-business-preview-en.pdf"
     },
     {
       "id": "facebook-page-selling",
@@ -391,12 +391,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/facebook-page-selling.pdf",
+      "source_file": "payments/pdfs/অনলাইন আয়/facebook-page-selling.pdf",
       "file_id": null,
       "file_url": null,
       "category": "অনলাইন আয়",
-      "preview_url": "payments/pdfs/facebook-page-selling-preview.pdf",
-      "preview_url_en": "payments/pdfs/facebook-page-selling-preview-en.pdf"
+      "preview_url": "payments/pdfs/অনলাইন আয়/facebook-page-selling-preview.pdf",
+      "preview_url_en": "payments/pdfs/অনলাইন আয়/facebook-page-selling-preview-en.pdf"
     },
     {
       "id": "digital-marketing-checklist",
@@ -406,12 +406,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/digital-marketing-checklist.pdf",
+      "source_file": "payments/pdfs/অনলাইন আয়/digital-marketing-checklist.pdf",
       "file_id": null,
       "file_url": null,
       "category": "অনলাইন আয়",
-      "preview_url": "payments/pdfs/digital-marketing-checklist-preview.pdf",
-      "preview_url_en": "payments/pdfs/digital-marketing-checklist-preview-en.pdf"
+      "preview_url": "payments/pdfs/অনলাইন আয়/digital-marketing-checklist-preview.pdf",
+      "preview_url_en": "payments/pdfs/অনলাইন আয়/digital-marketing-checklist-preview-en.pdf"
     },
     {
       "id": "cv-cover-letter-guide",
@@ -421,12 +421,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/cv-cover-letter-guide.pdf",
+      "source_file": "payments/pdfs/ক্যারিয়ার/cv-cover-letter-guide.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ক্যারিয়ার",
-      "preview_url": "payments/pdfs/cv-cover-letter-guide-preview.pdf",
-      "preview_url_en": "payments/pdfs/cv-cover-letter-guide-preview-en.pdf"
+      "preview_url": "payments/pdfs/ক্যারিয়ার/cv-cover-letter-guide-preview.pdf",
+      "preview_url_en": "payments/pdfs/ক্যারিয়ার/cv-cover-letter-guide-preview-en.pdf"
     },
     {
       "id": "interview-prep",
@@ -436,12 +436,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/interview-prep.pdf",
+      "source_file": "payments/pdfs/ক্যারিয়ার/interview-prep.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ক্যারিয়ার",
-      "preview_url": "payments/pdfs/interview-prep-preview.pdf",
-      "preview_url_en": "payments/pdfs/interview-prep-preview-en.pdf"
+      "preview_url": "payments/pdfs/ক্যারিয়ার/interview-prep-preview.pdf",
+      "preview_url_en": "payments/pdfs/ক্যারিয়ার/interview-prep-preview-en.pdf"
     },
     {
       "id": "excel-sheets-practical",
@@ -451,12 +451,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/excel-sheets-practical.pdf",
+      "source_file": "payments/pdfs/ক্যারিয়ার/excel-sheets-practical.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ক্যারিয়ার",
-      "preview_url": "payments/pdfs/excel-sheets-practical-preview.pdf",
-      "preview_url_en": "payments/pdfs/excel-sheets-practical-preview-en.pdf"
+      "preview_url": "payments/pdfs/ক্যারিয়ার/excel-sheets-practical-preview.pdf",
+      "preview_url_en": "payments/pdfs/ক্যারিয়ার/excel-sheets-practical-preview-en.pdf"
     },
     {
       "id": "daily-english-conversation",
@@ -466,12 +466,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/daily-english-conversation.pdf",
+      "source_file": "payments/pdfs/ভাষা ও পড়াশোনা/daily-english-conversation.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ভাষা ও পড়াশোনা",
-      "preview_url": "payments/pdfs/daily-english-conversation-preview.pdf",
-      "preview_url_en": "payments/pdfs/daily-english-conversation-preview-en.pdf"
+      "preview_url": "payments/pdfs/ভাষা ও পড়াশোনা/daily-english-conversation-preview.pdf",
+      "preview_url_en": "payments/pdfs/ভাষা ও পড়াশোনা/daily-english-conversation-preview-en.pdf"
     },
     {
       "id": "ielts-foundation",
@@ -481,12 +481,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/ielts-foundation.pdf",
+      "source_file": "payments/pdfs/ভাষা ও পড়াশোনা/ielts-foundation.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ভাষা ও পড়াশোনা",
-      "preview_url": "payments/pdfs/ielts-foundation-preview.pdf",
-      "preview_url_en": "payments/pdfs/ielts-foundation-preview-en.pdf"
+      "preview_url": "payments/pdfs/ভাষা ও পড়াশোনা/ielts-foundation-preview.pdf",
+      "preview_url_en": "payments/pdfs/ভাষা ও পড়াশোনা/ielts-foundation-preview-en.pdf"
     },
     {
       "id": "kids-study-ai",
@@ -496,12 +496,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/kids-study-ai.pdf",
+      "source_file": "payments/pdfs/ভাষা ও পড়াশোনা/kids-study-ai.pdf",
       "file_id": null,
       "file_url": null,
       "category": "ভাষা ও পড়াশোনা",
-      "preview_url": "payments/pdfs/kids-study-ai-preview.pdf",
-      "preview_url_en": "payments/pdfs/kids-study-ai-preview-en.pdf"
+      "preview_url": "payments/pdfs/ভাষা ও পড়াশোনা/kids-study-ai-preview.pdf",
+      "preview_url_en": "payments/pdfs/ভাষা ও পড়াশোনা/kids-study-ai-preview-en.pdf"
     },
     {
       "id": "healthy-meal-plan",
@@ -511,12 +511,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/healthy-meal-plan.pdf",
+      "source_file": "payments/pdfs/স্বাস্থ্য/healthy-meal-plan.pdf",
       "file_id": null,
       "file_url": null,
       "category": "স্বাস্থ্য",
-      "preview_url": "payments/pdfs/healthy-meal-plan-preview.pdf",
-      "preview_url_en": "payments/pdfs/healthy-meal-plan-preview-en.pdf"
+      "preview_url": "payments/pdfs/স্বাস্থ্য/healthy-meal-plan-preview.pdf",
+      "preview_url_en": "payments/pdfs/স্বাস্থ্য/healthy-meal-plan-preview-en.pdf"
     },
     {
       "id": "diabetes-food-list",
@@ -526,12 +526,12 @@
       "free": false,
       "price_stars": 10,
       "price_zero": 10,
-      "source_file": "payments/pdfs/diabetes-food-list.pdf",
+      "source_file": "payments/pdfs/স্বাস্থ্য/diabetes-food-list.pdf",
       "file_id": null,
       "file_url": null,
       "category": "স্বাস্থ্য",
-      "preview_url": "payments/pdfs/diabetes-food-list-preview.pdf",
-      "preview_url_en": "payments/pdfs/diabetes-food-list-preview-en.pdf"
+      "preview_url": "payments/pdfs/স্বাস্থ্য/diabetes-food-list-preview.pdf",
+      "preview_url_en": "payments/pdfs/স্বাস্থ্য/diabetes-food-list-preview-en.pdf"
     }
   ]
 }
