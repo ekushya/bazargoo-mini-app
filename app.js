@@ -242,6 +242,9 @@
         if (p.en) html += '<div class="pdf-note">বাংলা + English ভার্সন — দুটোই পাবেন</div>';
         html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
           '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
+        if (p.price_zero && earnBalance >= p.price_zero) {
+          html += '<button class="btn-secondary pdf-btn" type="button" data-redeem="' + esc(p.id) + '">⛓️ ZERO দিয়ে রিডিম করুন</button>';
+        }
       }
       html += '</article>';
     });
@@ -251,6 +254,9 @@
     });
     Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-zero]'), function (b) {
       b.addEventListener('click', function () { openPdfZeroSheet(b.getAttribute('data-buy-zero')); });
+    });
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-redeem]'), function (b) {
+      b.addEventListener('click', function () { redeemPdf(b.getAttribute('data-redeem')); });
     });
   }
   // ---------- PDF library: "আমার PDF" (purchased PDFs, re-download) ----------
@@ -300,6 +306,149 @@
   }
   function redownloadPdf(id) {
     openBotLink('https://t.me/' + BOT_USERNAME + '?start=redownload_' + encodeURIComponent(id));
+  }
+  // ---------- micro-task earn (Phase 3, v1) ----------
+  // Earn ZERO (an in-app ledger on the worker — NOT on-chain, NOT
+  // withdrawable as cash) by doing small tasks, and redeem the balance
+  // for PDFs. The worker verifies every claim server-side.
+  var earnBalance = 0;
+  var earnTasks = [];
+  function loadTasks() {
+    var sec = $('earnSection');
+    if (!sec) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) { sec.hidden = true; return; }
+    fetch(WORKER_URL + '/tasks?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        earnBalance = data.balance || 0;
+        earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
+        renderTasks();
+        renderPdfs(); // redeem buttons depend on the balance
+      })
+      .catch(function () { sec.hidden = true; });
+  }
+  function claimErrorText(reason) {
+    if (reason === 'already_done') return 'আজকের জন্য হয়ে গেছে।';
+    if (reason === 'not_member') return 'চ্যানেলে জয়েন করা হয়নি — জয়েন করে আবার চেষ্টা করুন।';
+    if (reason === 'wrong_answers') return 'একটি উত্তর ভুল হয়েছে — আবার চেষ্টা করুন।';
+    if (reason === 'daily_limit') return 'আজকের সীমা শেষ।';
+    if (reason === 'no_click') return 'প্রথমে বিজ্ঞাপনটি দেখুন, তারপর দাবি করুন।';
+    return 'দাবি করা যায়নি — আবার চেষ্টা করুন।';
+  }
+  function showEarnAlert(msg) {
+    if (tg && tg.showAlert) { try { tg.showAlert(msg); return; } catch (e) {} }
+    alert(msg);
+  }
+  function renderTasks() {
+    var sec = $('earnSection');
+    if (!sec) return;
+    sec.hidden = false;
+    $('earnBalance').textContent = 'আপনার ZERO: ' + earnBalance;
+    var html = '';
+    earnTasks.forEach(function (t) {
+      var doneLabel = (t.id === 'join_bazargoo' || t.id === 'join_earnplaygame') ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
+      html += '<article class="pdf-card">' +
+        '<div class="pdf-title">' + esc(t.title) + '</div>' +
+        (t.desc ? '<div class="pdf-desc">' + esc(t.desc) + '</div>' : '') +
+        '<div class="pdf-price-row"><span class="pdf-price">+' + t.reward + ' ZERO</span></div>';
+      if (t.id === 'quiz' && !t.done && t.questions) {
+        t.questions.forEach(function (q, qi) {
+          html += '<div class="quiz-q"><p>' + esc(q.q) + '</p>';
+          q.options.forEach(function (opt, oi) {
+            html += '<label class="quiz-opt"><input type="radio" name="quiz-' + qi + '" value="' + oi + '"> ' + esc(opt) + '</label>';
+          });
+          html += '</div>';
+        });
+        html += '<button class="btn-primary pdf-btn" type="button" data-quiz-submit>উত্তর জমা দিন</button>';
+      } else if (t.id === 'referral') {
+        html += '<button class="btn-secondary pdf-btn" type="button" data-ref-share>🔗 রেফারেল লিংক কপি করুন</button>';
+      } else if (t.id === 'ad') {
+        html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
+        html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      } else if (t.id === 'join_bazargoo' || t.id === 'join_earnplaygame') {
+        var ch = t.id === 'join_bazargoo' ? 'bazargoo287' : 'earnplaygame21';
+        html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
+        html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'যাচাই করুন') + '</button>';
+      } else {
+        html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      }
+      html += '</article>';
+    });
+    $('earnTaskRow').innerHTML = html;
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim]'), function (b) {
+      b.addEventListener('click', function () { claimTask(b.getAttribute('data-claim')); });
+    });
+    var qs = $('earnTaskRow').querySelector('[data-quiz-submit]');
+    if (qs) qs.addEventListener('click', submitQuiz);
+    var rs = $('earnTaskRow').querySelector('[data-ref-share]');
+    if (rs) rs.addEventListener('click', function () { copyRefLink(rs); });
+  }
+  function claimTask(id, answers) {
+    var uid = tgUserId();
+    if (!uid) return;
+    var body = { user_id: uid, task: id };
+    if (answers) body.answers = answers;
+    fetch(WORKER_URL + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          earnBalance = data.balance;
+          haptic('medium');
+        } else {
+          showEarnAlert(claimErrorText(data.reason));
+        }
+        loadTasks();
+      })
+      .catch(function () {});
+  }
+  function submitQuiz() {
+    var quiz = null;
+    earnTasks.forEach(function (t) { if (t.id === 'quiz') quiz = t; });
+    if (!quiz || !quiz.questions) return;
+    var answers = [];
+    for (var i = 0; i < quiz.questions.length; i++) {
+      var sel = document.querySelector('input[name="quiz-' + i + '"]:checked');
+      if (!sel) { showEarnAlert('সব প্রশ্নের উত্তর দিন।'); return; }
+      answers.push(parseInt(sel.value, 10));
+    }
+    claimTask('quiz', answers);
+  }
+  function copyRefLink(btn) {
+    var uid = tgUserId();
+    if (!uid) return;
+    var link = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + uid;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () { flashCopied(btn); }, function () { fallbackCopy(link); flashCopied(btn); });
+    } else { fallbackCopy(link); flashCopied(btn); }
+  }
+  function redeemPdf(id) {
+    var uid = tgUserId();
+    if (!uid) return;
+    fetch(WORKER_URL + '/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid, item_id: id }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          earnBalance = data.balance;
+          haptic('medium');
+          showEarnAlert('PDF পাঠানো হয়েছে ✓ — বটের চ্যাটে দেখুন।');
+          loadTasks();
+          loadMyPdfs();
+        } else if (data.reason === 'insufficient_balance') {
+          showEarnAlert('ZERO যথেষ্ট নয় — আরও টাস্ক করুন।');
+        } else {
+          showEarnAlert('রিডিম করা যায়নি — আবার চেষ্টা করুন।');
+        }
+      })
+      .catch(function () {});
   }
   function openBotLink(url) {
     var inTg = !!(tg && tg.initData);
@@ -1679,4 +1828,5 @@
   loadReviews();
   loadPdfs();
   loadMyPdfs();
+  loadTasks();
 })();
