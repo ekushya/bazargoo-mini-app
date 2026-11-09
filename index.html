@@ -73,9 +73,12 @@
   <section id="earnSection" class="deals" hidden>
     <h2>✅ টাস্ক</h2>
     <div id="earnStreak" hidden></div>
+    <div id="earnMonthly" hidden></div>
     <div id="earnBalance" class="pdf-note">আপনার ZERO: ০</div>
     <div id="earnDeviceNote" class="form-error" hidden></div>
+    <div id="spinBox" hidden></div>
     <div id="earnTaskRow" class="deals-row"></div>
+    <div id="leaderboardBox" hidden></div>
     <div class="pdf-note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — নগদ তোলা যাবে না।</div>
   </section>
 
@@ -92,6 +95,8 @@
     <div class="earn-group-title">👥 আমার রেফারেল লিস্ট</div>
     <div id="friendList" class="deals-row"></div>
     <div id="friendEmpty" class="pdf-note" hidden>এখনো কেউ আপনার লিংকে জয়েন করেনি — লিংকটি শেয়ার করুন।</div>
+    <div class="earn-group-title">🎁 রেফারেল প্রতিযোগিতা</div>
+    <div id="contestBox" hidden></div>
   </section>
 
   <section id="profileSection" class="deals" hidden>
@@ -99,6 +104,11 @@
     <div id="profileCard" hidden></div>
     <div class="earn-group-title">👛 ওয়ালেট</div>
     <div id="walletCard" class="earn-profile"></div>
+    <div class="earn-group-title">🎟️ ZERO কুপন</div>
+    <div id="couponCard" class="earn-profile"></div>
+    <div class="earn-group-title">🎟️ আমার কুপন</div>
+    <div id="myCouponsList" class="deals-row"></div>
+    <div id="myCouponsEmpty" class="pdf-note" hidden>এখনো কোনো কুপন কেনা হয়নি — ১০০ ZERO জমিয়ে ৫% ছাড়ের কুপন কিনুন।</div>
     <div class="earn-group-title">💳 লেনদেনের ইতিহাস</div>
     <div id="historyList" class="deals-row"></div>
     <div id="historyEmpty" class="pdf-note" hidden>এখনো কোনো লেনদেন হয়নি।</div>
@@ -237,7 +247,7 @@
 
           <div class="cart-summary">
             <div class="summary-row small"><span>পণ্যের মোট</span><span id="subtotalVal">৳০</span></div>
-            <div class="summary-row small" id="discountRow" hidden><span>ছাড় (BAZAR5 — ৫%)</span><span id="discountVal">−৳০</span></div>
+            <div class="summary-row small" id="discountRow" hidden><span id="discountLabel">ছাড় (BAZAR5 — ৫%)</span><span id="discountVal">−৳০</span></div>
             <div class="summary-row small"><span>ডেলিভারি চার্জ</span><span id="shippingVal">৳৬০</span></div>
             <div class="summary-row"><span>মোট</span><strong id="grandTotalVal">৳০</strong></div>
           </div>
@@ -338,6 +348,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>
