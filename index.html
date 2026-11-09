@@ -120,6 +120,22 @@
     <div class="pdf-note">উইথড্র ও ডিপোজিট এখনো চালু হয়নি — শীঘ্রই আসছে। অটো উইথড্র পরে আসবে।</div>
   </section>
 
+  <section id="browserSection" class="deals">
+    <h2>🌐 ব্রাউজার</h2>
+    <div class="browser-bar">
+      <input id="browserInput" type="text" placeholder="লিংক লিখুন বা সার্চ করুন…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ঠিকানা বা সার্চ">
+      <button id="browserGoBtn" class="btn-primary" type="button">যাও</button>
+    </div>
+    <p id="browserError" class="form-error" hidden></p>
+    <p class="browser-hint">লিংক লিখে যাও চাপো — Telegram-এর ব্রাউজারেই খুলবে, ফিরে আসতে ব্যাক চাপো।</p>
+    <div class="earn-group-title">⚡ দ্রুত লিংক</div>
+    <div id="browserQuickLinks" class="deals-row"></div>
+    <div class="earn-group-title">🕐 সাম্প্রতিক</div>
+    <div id="browserHistoryList" class="deals-row"></div>
+    <div id="browserHistoryEmpty" class="pdf-note" hidden>এখনো কিছু ব্রাউজ করা হয়নি — উপরে লিংক লিখে শুরু করুন।</div>
+    <button id="browserClearBtn" class="btn-secondary" type="button" hidden>🗑️ ইতিহাস মুছুন</button>
+  </section>
+
   <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
 
   <main>
@@ -347,8 +363,12 @@
       <span class="bottom-nav-icon">👤</span>
       <span class="bottom-nav-label">প্রোফাইল</span>
     </button>
+    <button type="button" class="bottom-nav-tab" data-nav-tab="browser" aria-label="ব্রাউজার">
+      <span class="bottom-nav-icon">🌐</span>
+      <span class="bottom-nav-label">ব্রাউজার</span>
+    </button>
   </nav>
 
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
