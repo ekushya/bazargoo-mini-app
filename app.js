@@ -338,6 +338,10 @@
   var earnTasks = [];
   var earnProfile = null;
   var earnStreak = null;
+  var earnDailyReward = null; // v20 Daily Reward strip from /tasks
+  var earnCommunity = null; // v20 community progress {done, total}
+  var earnFetchedAt = 0; // epoch ms when /tasks last returned (countdown base)
+  var earnTickTimer = null; // 30s live-countdown ticker (v20)
   var earnMonthly = null; // monthly check-in progress from /tasks (v19)
   var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
   var earnDeviceConflict = false; // true when this device belongs to another account
@@ -357,13 +361,17 @@
         earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
         earnProfile = data.profile || null;
         earnStreak = data.streak || null;
+        earnDailyReward = data.daily_reward || null;
+        earnCommunity = data.community_progress || null;
         earnMonthly = data.monthly_progress || null;
         earnDeviceConflict = !!data.device_conflict;
+        earnFetchedAt = Date.now(); // countdowns tick from these values
         earnLoaded = true;
         renderTasks();
         renderProfile();
         renderWallet();
         renderPdfs(); // redeem buttons depend on the balance
+        startEarnTicker(); // v20: live countdowns, every 30s
       })
       .catch(function () { sec.hidden = true; });
   }
@@ -459,6 +467,24 @@
     if (m === 0) return bnNum(h) + ' ঘণ্টা';
     return bnNum(h) + ' ঘণ্টা ' + bnNum(m) + ' মিনিট';
   }
+  // v20: live countdowns. Every [data-cd-ms] element holds the ms the
+  // worker reported at fetch time; each tick subtracts the time since
+  // earnFetchedAt. When a countdown reaches zero, the state changed
+  // (new day / cooldown over) — re-fetch /tasks once to refresh.
+  function startEarnTicker() {
+    if (earnTickTimer) return;
+    earnTickTimer = setInterval(function () {
+      if (!earnLoaded || !earnFetchedAt) return;
+      var needRefresh = false;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-cd-ms]'), function (el) {
+        var base = Number(el.getAttribute('data-cd-ms')) || 0;
+        var remain = base - (Date.now() - earnFetchedAt);
+        if (remain > 0) { el.textContent = fmtCooldown(remain); }
+        else { el.textContent = 'এখন করা যাবে'; needRefresh = true; }
+      });
+      if (needRefresh) loadTasks();
+    }, 30000);
+  }
   function claimErrorText(reason) {
     if (reason === 'already_done') return 'আজকের জন্য হয়ে গেছে।';
     if (reason === 'not_member') return 'চ্যানেলে জয়েন করা হয়নি — জয়েন করে আবার চেষ্টা করুন।';
@@ -504,21 +530,70 @@
       '<div class="earn-note">লেভেল শুধু মোট আয়ের হিসাব — এখনো কিছু আনলক করে না।</div>' +
       '</div>';
   }
-  function renderStreak() {
+  // v20: level progress bar at the top of the Task menu (Pickaxe-style
+  // header). Reuses profile.level/xp/xp_next — display only.
+  function renderEarnLevel() {
+    var el = $('earnLevelBar');
+    if (!el) return;
+    if (!earnProfile) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    var p = earnProfile;
+    var pct = Math.round((p.progress || 0) * 100);
+    var left = Math.max(0, (p.xp_next || 50) - (p.xp || 0));
+    el.innerHTML =
+      '<div class="earn-levelbar">' +
+      '<div class="earn-levelbar-top"><span>⭐ লেভেল ' + bnNum(p.level || 1) + '</span>' +
+      '<span>পরের লেভেলে ' + bnNum(left) + ' XP বাকি</span></div>' +
+      '<div class="earn-progress"><div class="earn-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="earn-levelbar-sub">' + bnNum(p.xp || 0) + '/' + bnNum(p.xp_next || 50) + ' XP • মোট আয় ' + bnNum(fmtZero(p.lifetime_earned || 0)) + ' ZERO</div>' +
+      '</div>';
+  }
+  // v20: Daily Reward card (Pickaxe-style) — gold card, 7-day strip,
+  // D7 as the big prize. The check-in button lives in this card.
+  // Falls back to the old streak strip if the worker sent no
+  // daily_reward block (e.g. a cached older response).
+  function renderDailyReward() {
     var el = $('earnStreak');
     if (!el) return;
-    if (!earnStreak || !earnStreak.days) { el.hidden = true; el.innerHTML = ''; return; }
+    if (!earnDailyReward || !earnDailyReward.days) {
+      if (!earnStreak || !earnStreak.days) { el.hidden = true; el.innerHTML = ''; return; }
+      el.hidden = false;
+      var s = earnStreak;
+      var html = '<div class="streak-strip"><div class="streak-title">🔥 চেক-ইন স্ট্রিক: ' +
+        bnNum(s.current || 0) + ' দিন • আজ +' + bnNum(s.today_reward || 1) + ' ZERO</div><div class="streak-days">';
+      s.days.forEach(function (d) {
+        var cls = 'streak-day' + (d.done ? ' done' : '') + (!d.done && !s.claimed_today && d.day === (s.current % 7) + 1 ? ' next' : '');
+        html += '<div class="' + cls + '">' + (d.done ? '✓' : bnNum(d.day)) +
+          '<span>দিন ' + bnNum(d.day) + '</span><b>+' + bnNum(d.reward) + '</b></div>';
+      });
+      html += '</div></div>';
+      el.innerHTML = html;
+      return;
+    }
     el.hidden = false;
-    var s = earnStreak;
-    var html = '<div class="streak-strip"><div class="streak-title">🔥 চেক-ইন স্ট্রিক: ' +
-      bnNum(s.current || 0) + ' দিন • আজ +' + bnNum(s.today_reward || 1) + ' ZERO</div><div class="streak-days">';
-    s.days.forEach(function (d) {
-      var cls = 'streak-day' + (d.done ? ' done' : '') + (!d.done && !s.claimed_today && d.day === (s.current % 7) + 1 ? ' next' : '');
-      html += '<div class="' + cls + '">' + (d.done ? '✓' : bnNum(d.day)) +
+    var dr = earnDailyReward;
+    var card = '<div class="daily-reward">' +
+      '<div class="dr-head"><div class="dr-title">🎁 দৈনিক পুরস্কার</div>' +
+      '<div class="dr-streak">🔥 ' + bnNum(dr.streak || 0) + ' দিনের স্ট্রিক</div></div>' +
+      '<div class="dr-days">';
+    dr.days.forEach(function (d) {
+      var ticked = d.claimed || (d.is_today && dr.claimed_today);
+      var cls = 'dr-day' + (ticked ? ' done' : '') + (d.is_today ? ' today' : '') + (d.day === 7 ? ' big' : '');
+      card += '<div class="' + cls + '">' + (ticked ? '✓' : bnNum(d.day)) +
         '<span>দিন ' + bnNum(d.day) + '</span><b>+' + bnNum(d.reward) + '</b></div>';
     });
-    html += '</div></div>';
-    el.innerHTML = html;
+    card += '</div><div class="dr-foot">';
+    if (dr.claimed_today) {
+      card += '<div class="dr-done">সংগ্রহ করা হয়েছে ✓ — আগামীকাল আবার আসো</div>' +
+        '<div class="dr-countdown">পরেরটি <span data-cd-ms="' + (dr.next_in_ms || 0) + '">' + fmtCooldown(dr.next_in_ms) + '</span> পর</div>';
+    } else {
+      card += '<button class="btn-primary pdf-btn" type="button" data-claim="checkin"' + (earnDeviceConflict ? ' disabled' : '') + '>✅ চেক-ইন করুন — +' + bnNum(dr.today_reward || 1) + ' ZERO</button>' +
+        '<div class="dr-note">আজকের পুরস্কার +' + bnNum(dr.today_reward || 1) + ' ZERO — প্রতিদিন চেক-ইন করলে পুরস্কার বাড়বে।</div>';
+    }
+    card += '</div></div>';
+    el.innerHTML = card;
+    var btn = el.querySelector('[data-claim="checkin"]');
+    if (btn) btn.addEventListener('click', function () { claimTask('checkin'); });
   }
   function taskCardHTML(t) {
     var doneLabel = (t.id.indexOf('join_') === 0) ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
@@ -542,17 +617,24 @@
     } else if (t.id === 'ad') {
       html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
       html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      html += '<div class="task-status' + (t.done ? ' done' : '') + '">' + (t.done ? 'সম্পন্ন ✓' : 'দিনে ৫ বার পর্যন্ত') + '</div>';
+      if (t.done) {
+        html += '<div class="task-status done">আজকের ৫ বার শেষ ✓ — আবার <span data-cd-ms="' + (t.resets_in_ms || 0) + '">' + fmtCooldown(t.resets_in_ms) + '</span> পর</div>';
+      } else {
+        var left = (typeof t.claims_left_today === 'number') ? t.claims_left_today : 5;
+        html += '<div class="task-status">আজ আরও ' + bnNum(left) + ' বার • দিনে ৫ বার পর্যন্ত</div>';
+      }
     } else if (t.id === 'react_daily') {
       html += '<a class="btn-secondary pdf-btn" href="https://t.me/bazargoo287/83" target="_blank" rel="noopener">❤️ পিন করা পোস্ট খুলুন</a>';
       html += '<button class="btn-primary pdf-btn" type="button" data-claim="react_daily"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
+      if (t.done) {
+        html += '<div class="task-status done">সম্পন্ন ✓' + (t.resets_in_ms ? ' — আবার <span data-cd-ms="' + t.resets_in_ms + '">' + fmtCooldown(t.resets_in_ms) + '</span> পর' : '') + '</div>';
+      }
     } else if (t.id === 'video_daily') {
       html += '<video class="earn-video" src="videos/bot-tutorial.mp4" controls playsinline preload="metadata" data-video-player></video>';
       html += '<div class="video-note">ভিডিওটি পুরো দেখলে দাবি বোতাম চালু হবে।</div>';
       if (t.done) {
-        html += '<button class="btn-secondary pdf-btn" type="button" disabled>আবার ' + fmtCooldown(t.available_in_ms) + ' পর</button>';
-        html += '<div class="task-status">আবার ' + fmtCooldown(t.available_in_ms) + ' পর করা যাবে</div>';
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>আবার <span data-cd-ms="' + (t.available_in_ms || 0) + '">' + fmtCooldown(t.available_in_ms) + '</span> পর</button>';
+        html += '<div class="task-status">আবার <span data-cd-ms="' + (t.available_in_ms || 0) + '">' + fmtCooldown(t.available_in_ms) + '</span> পর করা যাবে</div>';
       } else {
         html += '<button class="btn-primary pdf-btn" type="button" data-claim="video_daily" data-video-claim disabled>ভিডিও শেষ হলে দাবি করুন</button>';
         html += '<div class="task-status">২৪ ঘণ্টায় ১ বার</div>';
@@ -564,7 +646,7 @@
       if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
     } else {
       html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
+      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓' + (t.resets_in_ms ? ' — আবার <span data-cd-ms="' + t.resets_in_ms + '">' + fmtCooldown(t.resets_in_ms) + '</span> পর' : '') + '</div>';
     }
     html += '</article>';
     return html;
@@ -582,15 +664,18 @@
       } else { dn.hidden = true; dn.textContent = ''; }
     }
     renderProfile();
-    renderStreak();
+    renderEarnLevel(); // v20: level bar at the top of the Task menu
+    renderDailyReward(); // v20: gold Daily Reward card (check-in lives here)
     renderMonthly();
     renderSpin();
     renderLeaderboard();
     var byId = {};
     earnTasks.forEach(function (t) { byId[t.id] = t; });
+    // v20 groups: check-in lives in the Daily Reward card; react_daily
+    // moved into Community (joins + react = the community tasks).
     var groups = [
-      { title: '🎁 দৈনিক', ids: ['checkin', 'quiz', 'react_daily'] },
-      { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt'] },
+      { title: '🎁 দৈনিক', ids: ['quiz'] },
+      { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt', 'react_daily'], community: true },
       { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'video_daily'] },
       { title: '🔗 রেফারেল', ids: ['referral'] },
     ];
@@ -598,12 +683,19 @@
     groups.forEach(function (g) {
       var cards = '';
       g.ids.forEach(function (id) { if (byId[id]) cards += taskCardHTML(byId[id]); });
-      if (cards) html += '<div class="earn-group-title">' + esc(g.title) + '</div>' + cards;
+      if (cards) {
+        var title = g.title;
+        if (g.community && earnCommunity) {
+          title = '👥 কমিউনিটি — আজ ' + bnNum(earnCommunity.done || 0) + '/' + bnNum(earnCommunity.total || 0) + ' সম্পন্ন';
+        }
+        html += '<div class="earn-group-title">' + esc(title) + '</div>' + cards;
+      }
     });
     // Any task not in a group (future-proofing) still renders — except
-    // spin_daily, which has its own wheel card (renderSpin above).
+    // spin_daily, which has its own wheel card (renderSpin above), and
+    // checkin, which lives in the Daily Reward card (renderDailyReward).
     earnTasks.forEach(function (t) {
-      if (t.id === 'spin_daily') return;
+      if (t.id === 'spin_daily' || t.id === 'checkin') return;
       var grouped = groups.some(function (g) { return g.ids.indexOf(t.id) !== -1; });
       if (!grouped) html += taskCardHTML(t);
     });
