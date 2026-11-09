@@ -490,7 +490,8 @@
       html += '<button class="btn-primary pdf-btn" type="button" data-quiz-submit>উত্তর জমা দিন</button>';
     } else if (t.id === 'referral') {
       html += '<button class="btn-secondary pdf-btn" type="button" data-ref-share>🔗 রেফারেল লিংক কপি করুন</button>';
-      html += '<div class="task-status">প্রতি বন্ধু — বন্ধু চেক-ইন করলেই পাবেন</div>';
+      var rb = (typeof earnProfile !== 'undefined' && earnProfile && earnProfile.referrals_by_level) || null;
+      html += '<div class="task-status">আপনার রেফারেল — লেভেল ১: ' + bnNum(rb ? rb.l1 : 0) + ' জন • লেভেল ২: ' + bnNum(rb ? rb.l2 : 0) + ' জন • লেভেল ৩: ' + bnNum(rb ? rb.l3 : 0) + ' জন</div>';
     } else if (t.id === 'ad') {
       html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
       html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
