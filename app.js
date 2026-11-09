@@ -347,7 +347,7 @@
     $('earnBalance').textContent = 'আপনার ZERO: ' + earnBalance;
     var html = '';
     earnTasks.forEach(function (t) {
-      var doneLabel = (t.id === 'join_bazargoo' || t.id === 'join_earnplaygame') ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
+      var doneLabel = (t.id.indexOf('join_') === 0) ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
       html += '<article class="pdf-card">' +
         '<div class="pdf-title">' + esc(t.title) + '</div>' +
         (t.desc ? '<div class="pdf-desc">' + esc(t.desc) + '</div>' : '') +
@@ -366,8 +366,11 @@
       } else if (t.id === 'ad') {
         html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
         html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      } else if (t.id === 'join_bazargoo' || t.id === 'join_earnplaygame') {
-        var ch = t.id === 'join_bazargoo' ? 'bazargoo287' : 'earnplaygame21';
+      } else if (t.id === 'react_daily') {
+        html += '<a class="btn-secondary pdf-btn" href="https://t.me/bazargoo287/83" target="_blank" rel="noopener">❤️ পিন করা পোস্ট খুলুন</a>';
+        html += '<button class="btn-primary pdf-btn" type="button" data-claim="react_daily"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      } else if (t.id.indexOf('join_') === 0) {
+        var ch = { join_bazargoo: 'bazargoo287', join_earnplaygame: 'earnplaygame21', join_cryptoguru: 'cryptoguru_247', join_adsterratt: 'adsterratt' }[t.id];
         html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
         html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'যাচাই করুন') + '</button>';
       } else {
