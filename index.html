@@ -80,7 +80,7 @@
     <div id="spinBox" hidden></div>
     <div id="earnTaskRow" class="deals-row"></div>
     <div id="leaderboardBox" hidden></div>
-    <div class="pdf-note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — নগদ তোলা যাবে না।</div>
+    <div class="pdf-note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — জমা ZERO Wallet থেকে তুলতেও পারবেন।</div>
   </section>
 
   <section id="friendSection" class="deals" hidden>
@@ -117,7 +117,7 @@
     <div id="earningTotals" class="deals-row"></div>
     <div id="earningList" class="deals-row"></div>
     <div id="earningEmpty" class="pdf-note" hidden>এখনো কোনো আয় হয়নি — টাস্ক করুন।</div>
-    <div class="pdf-note">উইথড্র ও ডিপোজিট এখনো চালু হয়নি — শীঘ্রই আসছে। অটো উইথড্র পরে আসবে।</div>
+    <div class="pdf-note">ZERO ও GRAM উইথড্র ও ডিপোজিট চালু হয়েছে — Wallet খুলে দেখুন। তোলা ম্যানুয়াল — অ্যাডমিন পাঠিয়ে txid জানিয়ে দেন। ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই।</div>
   </section>
 
   <section id="browserSection" class="deals">
@@ -341,6 +341,28 @@
     </div>
   </div>
 
+  <!-- Wallet sheet (v26) -->
+  <div id="walletSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="walletSheet" aria-label="বন্ধ করুন">✕</button>
+      <div class="sheet-body">
+        <h2>👛 Wallet</h2>
+        <div id="walletBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Promote sheet (v26) -->
+  <div id="promoteSheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="promoteSheet" aria-label="বন্ধ করুন">✕</button>
+      <div class="sheet-body">
+        <h2>📢 Promote করুন</h2>
+        <div id="promoteBody"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bottom navigation (v18) -->
   <nav id="bottomNav" class="bottom-nav" aria-label="মূল মেনু">
     <button type="button" class="bottom-nav-tab active" data-nav-tab="shop" aria-label="দোকান">
@@ -369,6 +391,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=25"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
