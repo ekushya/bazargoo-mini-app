@@ -64,6 +64,15 @@
  * kept; +1 free spin wins raise the daily max to 6. AdsGram block
  * ID (ADSGRAM_BLOCK_ID below) is empty until Angela's dashboard
  * steps are done — spin/ads tasks show "coming soon" meanwhile.
+ * v27 (10 Nov 2026): ZERO auto-send (phase 2) — ≤500 ZERO payouts
+ * send automatically from the payout wallet (worker signs + broadcasts
+ * + confirms; >500 ZERO still needs Angela's approval, then it also
+ * auto-sends); GRAM payouts stay manual. Withdraw gate: instant
+ * withdrawals need @bazargoowithdraw join + today's react stamp
+ * (task 'react_withdraw', reward 0) — the wallet sheet shows the two
+ * gate steps with live status; every completed payout posts a proof
+ * to @bazargoowithdraw (amount + user + payout id + txid — never the
+ * destination address).
  */
 (function () {
   'use strict';
@@ -815,6 +824,7 @@
     if (reason === 'unknown_nonce') return 'বিজ্ঞাপন যাচাই করা যায়নি — আবার চেষ্টা করো।';
     if (reason === 'user_mismatch') return 'এই পুরস্কারটি আপনার নয়।';
     if (reason === 'joins_required') return 'আগে ৪টি চ্যানেলে জয়েন করুন — প্রোফাইলে চেকলিস্ট দেখুন।';
+    if (reason === 'withdraw_gate') return 'আগে BazarGoo Withdraw চ্যানেলে জয়েন করে পিন করা পোস্টে ❤️ রিঅ্যাক্ট দিন — ওয়ালেটের "তোলার আগে" ধাপ দুটি দেখুন।';
     if (reason === 'start_first') return 'প্রথমে স্পন্সর কাজটি খুলুন।';
     if (reason === 'dwell_not_done') return 'একটু অপেক্ষা করুন — কাজটি দেখে তারপর দাবি করুন।';
     if (reason === 'promo_not_live') return 'এই প্রমোশনটি আর লাইভ নেই।';
@@ -1996,6 +2006,24 @@
     var gramNote = (walletState && walletState.gram_configured)
       ? ''
       : '<div class="pdf-note">GRAM পেমেন্ট/তোলা এখনো চালু হয়নি — অ্যাডমিন সেটআপ বাকি আছে।</div>';
+    // v27 withdraw gate: instant withdrawals need @bazargoowithdraw
+    // join + today's react stamp. Status comes from /wallet
+    // (withdraw_gate); the sheet shows the two steps with Join/React
+    // buttons and a claim button for the react stamp.
+    var gate = walletState && walletState.withdraw_gate;
+    var gateHtml = '';
+    if (gate) {
+      var joinMark = gate.joined ? '✅' : '⬜';
+      var reactMark = gate.react_done ? '✅' : '⬜';
+      gateHtml = '<h3>💸 তোলার আগে — ২টি ধাপ</h3>' +
+        '<div class="pdf-note">তুলতে হলে প্রথমে <b>BazarGoo Withdraw</b> চ্যানেলে জয়েন করুন আর পিন করা পোস্টে ❤️ রিঅ্যাক্ট দিন — প্রতিদিন একবার।</div>' +
+        '<div class="form-row"><a class="btn-primary" href="https://t.me/bazargoowithdraw" target="_blank" rel="noopener">1️⃣ চ্যানেলে জয়েন ' + joinMark + '</a>' +
+        '<a class="btn-primary" href="https://t.me/bazargoowithdraw/2" target="_blank" rel="noopener">2️⃣ পিন করা পোস্টে ❤️ ' + reactMark + '</a></div>' +
+        (gate.ok
+          ? '<div class="task-status done">✅ তোলার শর্ত পূরণ হয়েছে — এখন তুলতে পারেন।</div>'
+          : '<button class="btn-secondary btn-block" type="button" id="wdGateClaimBtn">✅ রিঅ্যাক্ট করেছি — দাবি করুন</button><div id="wdGateMsg"></div>') +
+        '<button class="btn-secondary btn-block" type="button" id="wdGateRefreshBtn">🔄 অবস্থা আবার দেখুন</button>';
+    }
     return '<p><strong>আয়:</strong> ' + bnNum(fmtZero(earned)) + ' ZERO &nbsp;•&nbsp; <strong>Wallet:</strong> ' +
       bnNum(fmtZero(w.zero)) + ' ZERO • ' + bnNum(fmtZero(w.gram)) + ' GRAM • ' + bnNum(fmtZero(w.stars)) + ' Stars</p>' +
       '<h3>⬇️ ডিপোজিট</h3>' +
@@ -2003,6 +2031,7 @@
       '<label>পরিমাণ <input id="depAmount" type="number" min="1" step="any" placeholder="১০"></label></div>' +
       '<button class="btn-primary btn-block" type="button" id="depStartBtn">ডিপোজিট শুরু করুন</button>' +
       '<div id="depPayBox"></div>' +
+      gateHtml +
       '<h3>⬆️ উইথড্র</h3>' +
       '<div class="form-row"><label>মুদ্রা <select id="wdCurrency"><option value="zero">⛓️ ZERO</option><option value="gram">💎 GRAM</option></select></label>' +
       '<label>পরিমাণ <input id="wdAmount" type="number" min="0" step="any" placeholder="১"></label></div>' +
@@ -2085,12 +2114,28 @@
         if (res.mode === 'save') {
           m.innerHTML = '<div class="task-status done">✅ ' + bnNum(fmtZero(res.amount)) + ' ' + (cur === 'zero' ? 'ZERO' : 'GRAM') + ' Wallet-এ জমা রাখা হয়েছে।</div>';
         } else if (res.status === 'pending_approval') {
-          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — অ্যাডমিনের অনুমোদনের অপেক্ষায়। অনুমোদন হলে অ্যাডমিন পাঠিয়ে txid জানিয়ে দেবেন।</div>';
+          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — অ্যাডমিনের অনুমোদনের অপেক্ষায়। অনুমোদন হলে অটো পাঠানো হবে, txid জানিয়ে দেওয়া হবে।</div>';
+        } else if (res.status === 'sent') {
+          // v27: ≤500 ZERO auto-sends immediately — the txid is in the response.
+          m.innerHTML = '<div class="task-status done">✅ পাঠানো হয়েছে! txid: <code>' + esc(res.txid || '') + '</code></div>';
         } else {
-          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — অ্যাডমিন শীঘ্রই পাঠিয়ে txid জানিয়ে দেবেন।</div>';
+          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — পাঠানো হচ্ছে, txid শীঘ্রই জানানো হবে।</div>';
         }
         loadWallet(); loadTasks();
       });
+    });
+    // v27 withdraw gate: claim the react stamp, then refresh the
+    // wallet state + re-render the sheet so the gate shows done.
+    var gateClaimBtn = $('wdGateClaimBtn');
+    if (gateClaimBtn) gateClaimBtn.addEventListener('click', function () {
+      claimTask('react_withdraw');
+      loadWallet();
+      setTimeout(function () { openWalletSheet(); }, 900);
+    });
+    var gateRefreshBtn = $('wdGateRefreshBtn');
+    if (gateRefreshBtn) gateRefreshBtn.addEventListener('click', function () {
+      loadWallet();
+      setTimeout(function () { openWalletSheet(); }, 900);
     });
     var addrBtn = $('addrSaveBtn');
     if (addrBtn) addrBtn.addEventListener('click', function () {
