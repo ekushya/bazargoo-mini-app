@@ -315,6 +315,7 @@
   var earnTasks = [];
   var earnProfile = null;
   var earnStreak = null;
+  var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
   function loadTasks() {
     var sec = $('earnSection');
     if (!sec) return;
@@ -329,10 +330,89 @@
         earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
         earnProfile = data.profile || null;
         earnStreak = data.streak || null;
+        earnLoaded = true;
         renderTasks();
         renderPdfs(); // redeem buttons depend on the balance
       })
       .catch(function () { sec.hidden = true; });
+  }
+  // ---------- bottom navigation (v16) ----------
+  // Fixed 4-tab bar: দোকান / আয় / আমার PDF / প্রোফাইল. Tapping a tab
+  // smooth-scrolls to its section; IntersectionObserver keeps the active
+  // tab in sync while scrolling manually. Safe in a plain browser: the
+  // Earn/Profile tabs just scroll — loadTasks guards on a Telegram user,
+  // and hidden sections are simply skipped (nothing harmful happens).
+  var NAV_TABS = [
+    { id: 'shop', target: 'chips', section: 'grid' },
+    { id: 'earn', target: 'earnSection', section: 'earnSection', earn: true },
+    { id: 'mypdf', target: 'myPdfSection', section: 'myPdfSection' },
+    { id: 'profile', target: 'earnProfile', section: 'earnProfile', earn: true },
+  ];
+  function isVisibleEl(el) {
+    if (!el || el.hidden) return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+  function scrollToEl(el) {
+    if (!el) return;
+    var top = el.getBoundingClientRect().top + window.pageYOffset - 64; // below sticky header
+    if (top < 0) top = 0;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+  }
+  function scrollToNavTarget(tab) {
+    var targetId = tab.target;
+    // Profile tab falls back to the whole Earn section when the profile
+    // card itself is hidden (e.g. no profile data yet).
+    if (tab.id === 'profile' && !isVisibleEl($('earnProfile'))) targetId = 'earnSection';
+    var el = $(targetId);
+    if (isVisibleEl(el)) { scrollToEl(el); return; }
+    // Section not visible yet (e.g. Earn still loading) — wait for it.
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries++;
+      var node = $(targetId);
+      if (isVisibleEl(node) || tries >= 15) {
+        clearInterval(timer);
+        if (isVisibleEl(node)) scrollToEl(node);
+      }
+    }, 200);
+  }
+  function setActiveNav(id) {
+    Array.prototype.forEach.call(document.querySelectorAll('.bottom-nav-tab'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-nav-tab') === id);
+    });
+  }
+  function setupBottomNav() {
+    var nav = $('bottomNav');
+    if (!nav) return;
+    Array.prototype.forEach.call(nav.querySelectorAll('.bottom-nav-tab'), function (btn) {
+      btn.addEventListener('click', function () {
+        var tabId = btn.getAttribute('data-nav-tab');
+        var tab = null;
+        NAV_TABS.forEach(function (t) { if (t.id === tabId) tab = t; });
+        if (!tab) return;
+        setActiveNav(tabId);
+        if (tab.earn && !earnLoaded) loadTasks();
+        scrollToNavTarget(tab);
+      });
+    });
+    // Keep the active tab in sync while the user scrolls manually.
+    if (!('IntersectionObserver' in window)) return;
+    var visible = {};
+    var order = ['profile', 'mypdf', 'earn', 'shop']; // priority when several intersect
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var tabId = en.target.getAttribute('data-nav-section');
+        if (tabId) visible[tabId] = en.isIntersecting;
+      });
+      for (var i = 0; i < order.length; i++) {
+        if (visible[order[i]]) { setActiveNav(order[i]); return; }
+      }
+    }, { rootMargin: '-40% 0px -50% 0px' });
+    NAV_TABS.forEach(function (t) {
+      var sec = $(t.section);
+      if (sec) { sec.setAttribute('data-nav-section', t.id); io.observe(sec); }
+    });
   }
   function fmtCooldown(ms) {
     // Remaining cooldown in Bengali: "৫ ঘণ্টা ১০ মিনিট" / "৪৫ মিনিট".
@@ -1251,6 +1331,7 @@
     } else {
       bar.hidden = true;
     }
+    document.body.classList.toggle('has-sticky-bar', !bar.hidden);
     updateMainButton();
   }
 
@@ -1934,6 +2015,7 @@
   // ---------- boot ----------
   setupTelegram();
   wireEvents();
+  setupBottomNav();
   loadProducts();
   loadReviews();
   loadPdfs();
