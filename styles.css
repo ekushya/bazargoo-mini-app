@@ -760,5 +760,29 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
 .quiz-q { margin: 8px 0; font-size: 13px; }
 .quiz-q p { margin: 4px 0; font-weight: 700; }
 .quiz-opt { display: block; margin: 3px 0; font-size: 13px; }
+/* ---------- Earn profile + streak (v15, Pickaxe-style) ---------- */
+.earn-profile { border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--secondary-bg); padding: 12px; margin: 8px 0; }
+.earn-profile-top { display: flex; align-items: center; gap: 10px; }
+.earn-avatar { font-size: 30px; line-height: 1; }
+.earn-name { font-size: 16px; font-weight: 800; }
+.earn-level { font-size: 12px; color: var(--hint); }
+.earn-balance-big { margin-left: auto; font-size: 16px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+.earn-progress { height: 8px; background: var(--card-border); border-radius: 4px; overflow: hidden; margin: 10px 0 4px; }
+.earn-progress-fill { height: 100%; background: #2ecc71; }
+.earn-stats { font-size: 12px; color: var(--hint); }
+.earn-note { font-size: 11px; color: var(--hint); margin-top: 2px; }
+.streak-strip { margin: 10px 0 4px; }
+.streak-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.streak-days { display: flex; gap: 5px; }
+.streak-day { flex: 1; text-align: center; padding: 6px 2px; border-radius: 8px; background: var(--secondary-bg); border: 1px solid var(--card-border); font-size: 13px; font-weight: 700; }
+.streak-day span { display: block; font-size: 10px; font-weight: 400; color: var(--hint); }
+.streak-day b { display: block; font-size: 11px; color: var(--accent); }
+.streak-day.done { background: #fff3cd; border-color: #ffc13c; }
+.streak-day.next { border: 2px solid #2ecc71; }
+.earn-group-title { font-size: 15px; font-weight: 800; margin: 16px 0 6px; }
+.earn-video { width: 100%; border-radius: 10px; margin: 6px 0; background: #000; }
+.video-note { font-size: 12px; color: var(--hint); margin: 2px 0 6px; }
+.task-status { font-size: 12px; color: var(--hint); margin-top: 4px; }
+.task-status.done { color: #1a7f37; font-weight: 700; }
 #pdfZeroBody p { font-size: 14px; line-height: 1.5; margin-bottom: 8px; }
 #pdfZeroBody code { word-break: break-all; font-size: 12px; }
