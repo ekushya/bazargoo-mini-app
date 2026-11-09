@@ -33,6 +33,11 @@
  * v24 (9 Nov 2026): PDF library +15 commercial guides (35 total) in 4 new
  * categories — অনলাইন আয় / ক্যারিয়ার / ভাষা ও পড়াশোনা / স্বাস্থ্য;
  * health guides carry a medical disclaimer on every page.
+ * v25 (9 Nov 2026): Monetag Rewarded Interstitial ad task — 1 ZERO per
+ * VERIFIED view (Monetag 'valued' event only), max 5/day, 30s cooldown,
+ * separate cap from the Zerads task. SDK zone ID + script URL come
+ * from Angela's Monetag dashboard (MONETAG_ZONE_ID / MONETAG_SDK_URL
+ * below) — until set, the task shows "coming soon" and no ad runs.
  */
 (function () {
   'use strict';
@@ -233,6 +238,19 @@
   var WORKER_URL = 'https://bazargoo-bot.bazargoo.workers.dev';
   var ZERO_SHOP_ADDRESS = '';
   var BOT_USERNAME = 'BazarGooBot';
+  // v25: Monetag Rewarded Interstitial (Telegram Mini App SDK).
+  // ⚠️ ANGELA — Monetag ড্যাশবোর্ড থেকে TMA zone-এর script tag-এর
+  // মান এখানে বসাতে হবে: MONETAG_ZONE_ID = zone ID (শুধু সংখ্যা),
+  // MONETAG_SDK_URL = script tag-এর src URL। যতক্ষণ খালি থাকবে,
+  // Monetag টাস্কটি "শীঘ্রই আসছে" দেখাবে — কোনো অ্যাড চলবে না,
+  // কোনো ZERO দেওয়া হবে না। Dashboard ধাপ: Monetag → Add Site →
+  // Telegram Mini App (bot + app URL) → Rewarded Interstitial tag
+  // তৈরি → script tag কপি করুন → এই দুই মান বসান। Postback URL
+  // (Monetag dashboard-এ main zone-এ বসাতে হবে):
+  // https://bazargoo-bot.bazargoo.workers.dev/monetag-postback?ymid={ymid}&event_type={event_type}&reward_event_type={reward_event_type}&zone_id={zone_id}&sub_zone_id={sub_zone_id}&estimated_price={estimated_price}&request_var={request_var}&telegram_id={telegram_id}
+  var MONETAG_ZONE_ID = '';
+  var MONETAG_SDK_URL = '';
+  var MONETAG_REQUEST_VAR = 'bazargoo_ad_task';
   var PDF_CATALOG_URL = 'payments/pdf_catalog.json';
   var pdfs = [];
   var pdfZeroId = null;
@@ -859,6 +877,28 @@
         var left = (typeof t.claims_left_today === 'number') ? t.claims_left_today : 5;
         html += '<div class="task-status">আজ আরও ' + bnNum(left) + ' বার • দিনে ৫ বার পর্যন্ত</div>';
       }
+    } else if (t.id === 'ad_monetag') {
+      // v25: Monetag Rewarded Interstitial — 1 ZERO per VERIFIED view,
+      // max 5/day, 30s cooldown. The SDK script/zone is configured in
+      // MONETAG_ZONE_ID / MONETAG_SDK_URL; until then the task shows
+      // "coming soon" and cannot be tapped. The button calls
+      // watchMonetagAd() (bound in renderTasks) — never /claim.
+      var mtgReady = !!(MONETAG_ZONE_ID && MONETAG_SDK_URL);
+      var mtgLeft = (typeof t.claims_left_today === 'number') ? t.claims_left_today : 5;
+      var mtgCd = (typeof t.cooldown_ms === 'number') ? t.cooldown_ms : 0;
+      if (!mtgReady) {
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>📺 অ্যাড দেখুন (Monetag)</button>';
+        html += '<div class="task-status">শীঘ্রই আসছে — Monetag ড্যাশবোর্ড সেটআপের অপেক্ষায়</div>';
+      } else if (t.done) {
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>আজকের ৫ বার শেষ ✓</button>';
+        html += '<div class="task-status done">আজকের ৫ বার শেষ ✓ — আবার <span data-cd-ms="' + (t.resets_in_ms || 0) + '">' + fmtCooldown(t.resets_in_ms) + '</span> পর</div>';
+      } else if (mtgCd > 0) {
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>📺 অ্যাড দেখুন</button>';
+        html += '<div class="task-status">পরের অ্যাড <span data-cd-ms="' + mtgCd + '">' + fmtCooldown(mtgCd) + '</span> পর • আজ আরও ' + bnNum(mtgLeft) + ' বার</div>';
+      } else {
+        html += '<button class="btn-primary pdf-btn" type="button" data-monetag-watch>📺 অ্যাড দেখুন — +১ ZERO</button>';
+        html += '<div class="task-status">আজ আরও ' + bnNum(mtgLeft) + ' বার • দিনে ৫ বার পর্যন্ত • বিজ্ঞাপন পুরো দেখলে পুরস্কার</div>';
+      }
     } else if (t.id === 'react_daily') {
       html += '<a class="btn-secondary pdf-btn" href="https://t.me/bazargoo287/83" target="_blank" rel="noopener">❤️ পিন করা পোস্ট খুলুন</a>';
       html += '<button class="btn-primary pdf-btn" type="button" data-claim="react_daily"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
@@ -933,7 +973,7 @@
       { title: '🎁 দৈনিক', ids: ['quiz'] },
       { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt', 'react_daily'], community: true },
       { title: '🌐 ভিজিট করুন', ids: VISIT_PAGE_IDS.concat(VISIT_CHAN_IDS), visit: true },
-      { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'video_daily'] },
+      { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'ad_monetag', 'video_daily'] },
       { title: '🔗 রেফারেল', ids: ['referral'] },
     ];
     var html = '';
@@ -983,6 +1023,11 @@
     $('earnTaskRow').innerHTML = html;
     Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim]'), function (b) {
       b.addEventListener('click', function () { claimTask(b.getAttribute('data-claim')); });
+    });
+    // v25: Monetag ad task — the button shows the Rewarded
+    // Interstitial (watchMonetagAd), it never claims via /claim.
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-monetag-watch]'), function (b) {
+      b.addEventListener('click', function () { watchMonetagAd(); });
     });
     // v22: visit tasks — "দেখুন" opens the Page/channel and unlocks
     // Claim for this session; "জয়েন করুন" opens the channel so a
@@ -1064,6 +1109,98 @@
         loadTasks();
       })
       .catch(function () {});
+  }
+  // ---------- v25: Monetag Rewarded Interstitial ----------
+  // Flow: 1) Worker থেকে এই ভিউয়ের ymid নিন (POST /monetag-start —
+  // দৈনিক ৫ বার + ৩০ সেকেন্ড কুলডাউন এখানেই যাচাই হয়)। 2) SDK-তে
+  // অ্যাড দেখান — reward শুধু 'valued' হলে। 3) Worker-কে জানান
+  // (POST /monetag-postback) — Monetag-এর server postback-ও একই
+  // ymid-এ আসবে; যেটা আগে পৌঁছাবে সেটাই ১ ZERO দেবে, অন্যটা
+  // duplicate। SDK script/zone খালি থাকলে টাস্কটি "শীঘ্রই আসছে"
+  // দেখায় — এই ফাংশন কখনো ডাকা হয় না।
+  var monetagSdkLoading = null;
+  var monetagBusy = false;
+  function monetagShowFn() {
+    if (!MONETAG_ZONE_ID || !MONETAG_SDK_URL) return null;
+    var fn = window['show_' + MONETAG_ZONE_ID];
+    return (typeof fn === 'function') ? fn : null;
+  }
+  function loadMonetagSdk() {
+    if (!MONETAG_ZONE_ID || !MONETAG_SDK_URL) return Promise.resolve(false);
+    if (monetagShowFn()) return Promise.resolve(true);
+    if (monetagSdkLoading) return monetagSdkLoading;
+    monetagSdkLoading = new Promise(function (resolve) {
+      var s = document.createElement('script');
+      s.src = MONETAG_SDK_URL;
+      s.setAttribute('data-zone', MONETAG_ZONE_ID);
+      s.setAttribute('data-sdk', 'show_' + MONETAG_ZONE_ID);
+      s.onload = function () { resolve(!!monetagShowFn()); };
+      s.onerror = function () { monetagSdkLoading = null; resolve(false); };
+      document.head.appendChild(s);
+    });
+    return monetagSdkLoading;
+  }
+  function watchMonetagAd() {
+    var uid = tgUserId();
+    if (!uid || monetagBusy) return;
+    if (!MONETAG_ZONE_ID || !MONETAG_SDK_URL) {
+      showEarnAlert('Monetag বিজ্ঞাপন এখনো চালু হয়নি — ড্যাশবোর্ড সেটআপ বাকি আছে।');
+      return;
+    }
+    monetagBusy = true;
+    var user = telegramUser();
+    fetch(WORKER_URL + '/monetag-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid, device_id: deviceId() || undefined }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (start) {
+        if (!start.ok) {
+          monetagBusy = false;
+          showEarnAlert(claimErrorText(start.reason) || 'এখন বিজ্ঞাপন দেখা যাবে না।');
+          loadTasks();
+          return;
+        }
+        return loadMonetagSdk().then(function (ready) {
+          if (!ready) {
+            monetagBusy = false;
+            showEarnAlert('বিজ্ঞাপন লোড হয়নি — একটু পরে আবার চেষ্টা করো।');
+            return;
+          }
+          var showFn = monetagShowFn();
+          return showFn({ type: 'end', ymid: start.ymid, requestVar: MONETAG_REQUEST_VAR })
+            .then(function (result) {
+              monetagBusy = false;
+              if (result && result.reward_event_type === 'valued') {
+                var body = { user_id: uid, ymid: start.ymid, reward_event_type: 'valued', event_type: result.event_type || 'impression', device_id: deviceId() || undefined };
+                if (user && user.first_name) body.name = user.first_name;
+                return fetch(WORKER_URL + '/monetag-postback', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(body),
+                })
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    if (data.ok) { earnBalance = data.balance; haptic('medium'); showEarnAlert('🎉 +১ ZERO যোগ হয়েছে!'); }
+                    else if (data.reason === 'already_credited') { showEarnAlert('এই বিজ্ঞাপনের পুরস্কার already দেওয়া হয়েছে ✓'); }
+                    else showEarnAlert(claimErrorText(data.reason) || 'পুরস্কার দেওয়া যায়নি।');
+                    loadTasks();
+                  })
+                  .catch(function () { loadTasks(); });
+              }
+              showEarnAlert('এই বিজ্ঞাপন থেকে আয় হয়নি — আবার চেষ্টা করো।');
+              loadTasks();
+            })
+            .catch(function (err) {
+              monetagBusy = false;
+              var msg = (err && err.message) || '';
+              showEarnAlert(msg === 'Empty feed' ? 'এখন কোনো বিজ্ঞাপন নেই — একটু পরে আবার চেষ্টা করো।' : 'বিজ্ঞাপন দেখানো যায়নি — আবার চেষ্টা করো।');
+              loadTasks();
+            });
+        });
+      })
+      .catch(function () { monetagBusy = false; });
   }
   function submitQuiz() {
     var quiz = null;
