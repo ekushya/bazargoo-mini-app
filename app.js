@@ -106,6 +106,29 @@
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return '৳' + Number(n).toLocaleString('en-US'); }
   function bnNum(n) { return String(n).replace(/[0-9]/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }); }
+  // ZERO amounts may be fractional (3%/2%/1% commissions). Show up to
+  // 2 decimals, trimming trailing zeros: 10 -> "10", 10.5 -> "10.5".
+  function fmtZero(n) {
+    var v = Math.round((Number(n) || 0) * 100) / 100;
+    if (v % 1 === 0) return String(v);
+    return v.toFixed(2).replace(/0$/, '');
+  }
+  // One mobile = one account: a persistent device id (localStorage
+  // UUID) sent with /tasks and claims. The worker binds the first user
+  // on a device; a different user on the same device is blocked from
+  // earning. Clearing app data resets the id — a deterrent, not a
+  // guarantee.
+  function deviceId() {
+    try {
+      var k = 'bazargoo_device_v1';
+      var id = localStorage.getItem(k);
+      if (!id) {
+        id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(k, id);
+      }
+      return id;
+    } catch (e) { return null; }
+  }
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -316,6 +339,7 @@
   var earnProfile = null;
   var earnStreak = null;
   var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
+  var earnDeviceConflict = false; // true when this device belongs to another account
   function loadTasks() {
     var sec = $('earnSection');
     if (!sec) return;
@@ -323,30 +347,37 @@
     if (!WORKER_URL || !uid) { sec.hidden = true; return; }
     var user = telegramUser();
     var nameParam = user && user.first_name ? '&name=' + encodeURIComponent(user.first_name) : '';
-    fetch(WORKER_URL + '/tasks?user_id=' + encodeURIComponent(uid) + nameParam)
+    var dev = deviceId();
+    var devParam = dev ? '&device_id=' + encodeURIComponent(dev) : '';
+    fetch(WORKER_URL + '/tasks?user_id=' + encodeURIComponent(uid) + nameParam + devParam)
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (data) {
         earnBalance = data.balance || 0;
         earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
         earnProfile = data.profile || null;
         earnStreak = data.streak || null;
+        earnDeviceConflict = !!data.device_conflict;
         earnLoaded = true;
         renderTasks();
+        renderProfile();
+        renderWallet();
         renderPdfs(); // redeem buttons depend on the balance
       })
       .catch(function () { sec.hidden = true; });
   }
-  // ---------- bottom navigation (v16) ----------
-  // Fixed 4-tab bar: দোকান / আয় / আমার PDF / প্রোফাইল. Tapping a tab
-  // smooth-scrolls to its section; IntersectionObserver keeps the active
-  // tab in sync while scrolling manually. Safe in a plain browser: the
-  // Earn/Profile tabs just scroll — loadTasks guards on a Telegram user,
-  // and hidden sections are simply skipped (nothing harmful happens).
+  // ---------- bottom navigation (v18) ----------
+  // Fixed 5-tab bar: দোকান / টাস্ক / বন্ধু / আমার PDF / প্রোফাইল.
+  // Tapping a tab smooth-scrolls to its section; IntersectionObserver
+  // keeps the active tab in sync while scrolling manually. Safe in a
+  // plain browser: the Earn/Friend/Profile tabs just scroll — loadTasks
+  // guards on a Telegram user, and hidden sections are simply skipped
+  // (nothing harmful happens).
   var NAV_TABS = [
     { id: 'shop', target: 'chips', section: 'grid' },
-    { id: 'earn', target: 'earnSection', section: 'earnSection', earn: true },
+    { id: 'tasks', target: 'earnSection', section: 'earnSection', earn: true },
+    { id: 'friend', target: 'friendSection', section: 'friendSection', earn: true },
     { id: 'mypdf', target: 'myPdfSection', section: 'myPdfSection' },
-    { id: 'profile', target: 'earnProfile', section: 'earnProfile', earn: true },
+    { id: 'profile', target: 'profileSection', section: 'profileSection', earn: true },
   ];
   function isVisibleEl(el) {
     if (!el || el.hidden) return false;
@@ -361,9 +392,9 @@
   }
   function scrollToNavTarget(tab) {
     var targetId = tab.target;
-    // Profile tab falls back to the whole Earn section when the profile
-    // card itself is hidden (e.g. no profile data yet).
-    if (tab.id === 'profile' && !isVisibleEl($('earnProfile'))) targetId = 'earnSection';
+    // Profile tab falls back to the Friend section when the profile
+    // section itself is hidden (e.g. no profile data yet).
+    if (tab.id === 'profile' && !isVisibleEl($('profileSection'))) targetId = 'friendSection';
     var el = $(targetId);
     if (isVisibleEl(el)) { scrollToEl(el); return; }
     // Section not visible yet (e.g. Earn still loading) — wait for it.
@@ -393,13 +424,15 @@
         if (!tab) return;
         setActiveNav(tabId);
         if (tab.earn && !earnLoaded) loadTasks();
+        if (tab.id === 'friend') loadFriend();
+        if (tab.id === 'profile') { loadProfile(); loadHistory(); }
         scrollToNavTarget(tab);
       });
     });
     // Keep the active tab in sync while the user scrolls manually.
     if (!('IntersectionObserver' in window)) return;
     var visible = {};
-    var order = ['profile', 'mypdf', 'earn', 'shop']; // priority when several intersect
+    var order = ['profile', 'mypdf', 'friend', 'tasks', 'shop']; // priority when several intersect
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         var tabId = en.target.getAttribute('data-nav-section');
@@ -431,6 +464,7 @@
     if (reason === 'daily_limit') return 'আজকের সীমা শেষ।';
     if (reason === 'no_click') return 'প্রথমে বিজ্ঞাপনটি দেখুন, তারপর দাবি করুন।';
     if (reason === 'cooldown') return 'এখনো সময় হয়নি — আবার পরে চেষ্টা করুন।';
+    if (reason === 'device_conflict') return 'এই মোবাইলে already একটা অ্যাকাউন্ট আছে — এই অ্যাকাউন্ট দিয়ে আয় করা যাবে না।';
     return 'দাবি করা যায়নি — আবার চেষ্টা করুন।';
   }
   function showEarnAlert(msg) {
@@ -438,22 +472,26 @@
     alert(msg);
   }
   function renderProfile() {
-    var el = $('earnProfile');
+    var el = $('profileCard');
     if (!el) return;
     if (!earnProfile) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
+    var sec = $('profileSection');
+    if (sec) sec.hidden = false;
     var p = earnProfile;
     var pct = Math.round((p.progress || 0) * 100);
+    var join = p.join_date ? bnNum(String(p.join_date).slice(0, 10)) : '—';
     el.innerHTML =
       '<div class="earn-profile">' +
       '<div class="earn-profile-top">' +
       '<div class="earn-avatar">👤</div>' +
       '<div><div class="earn-name">' + esc(p.name || 'ব্যবহারকারী') + '</div>' +
-      '<div class="earn-level">লেভেল ' + bnNum(p.level || 1) + ' • মোট আয় ' + bnNum(p.lifetime_earned || 0) + ' ZERO</div></div>' +
-      '<div class="earn-balance-big">' + bnNum(earnBalance) + ' ZERO</div>' +
+      '<div class="earn-level">লেভেল ' + bnNum(p.level || 1) + ' • মোট আয় ' + bnNum(fmtZero(p.lifetime_earned || 0)) + ' ZERO</div></div>' +
+      '<div class="earn-balance-big">' + bnNum(fmtZero(earnBalance)) + ' ZERO</div>' +
       '</div>' +
       '<div class="earn-progress"><div class="earn-progress-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="earn-stats">পরের লেভেলে ' + bnNum(p.xp || 0) + '/' + bnNum(p.xp_next || 50) + ' • ✅ ' + bnNum(p.tasks_completed || 0) + 'টি টাস্ক সম্পন্ন • 👥 ' + bnNum(p.referrals || 0) + ' জন রেফারেল</div>' +
+      '<div class="earn-details">Telegram ID: ' + esc(String(tgUserId() || '')) + ' • জয়েন: ' + join + ' • রেফারেল থেকে আয়: ' + bnNum(fmtZero(p.referral_earnings || 0)) + ' ZERO</div>' +
       '<div class="earn-note">লেভেল শুধু মোট আয়ের হিসাব — এখনো কিছু আনলক করে না।</div>' +
       '</div>';
   }
@@ -526,7 +564,14 @@
     var sec = $('earnSection');
     if (!sec) return;
     sec.hidden = false;
-    $('earnBalance').textContent = 'আপনার ZERO: ' + earnBalance;
+    $('earnBalance').textContent = 'আপনার ZERO: ' + bnNum(fmtZero(earnBalance));
+    var dn = $('earnDeviceNote');
+    if (dn) {
+      if (earnDeviceConflict) {
+        dn.hidden = false;
+        dn.textContent = 'এই মোবাইলে already একটা অ্যাকাউন্ট আছে — এই অ্যাকাউন্ট দিয়ে টাস্কের আয় করা যাবে না। দোকান ও PDF কেনা চলবে।';
+      } else { dn.hidden = true; dn.textContent = ''; }
+    }
     renderProfile();
     renderStreak();
     var byId = {};
@@ -552,6 +597,14 @@
     Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim]'), function (b) {
       b.addEventListener('click', function () { claimTask(b.getAttribute('data-claim')); });
     });
+    // One mobile = one account: when this device belongs to another
+    // account, earning claims are disabled here (the worker blocks them
+    // too — this is only the visible part).
+    if (earnDeviceConflict) {
+      Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim], [data-quiz-submit]'), function (b) {
+        b.disabled = true;
+      });
+    }
     var qs = $('earnTaskRow').querySelector('[data-quiz-submit]');
     if (qs) qs.addEventListener('click', submitQuiz);
     var rs = $('earnTaskRow').querySelector('[data-ref-share]');
@@ -580,6 +633,10 @@
     if (!uid) return;
     var body = { user_id: uid, task: id };
     if (answers) body.answers = answers;
+    var user = telegramUser();
+    if (user && user.first_name) body.name = user.first_name;
+    var dev = deviceId();
+    if (dev) body.device_id = dev;
     fetch(WORKER_URL + '/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -616,6 +673,145 @@
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(link).then(function () { flashCopied(btn); }, function () { fallbackCopy(link); flashCopied(btn); });
     } else { fallbackCopy(link); flashCopied(btn); }
+  }
+  function refLink() {
+    var uid = tgUserId();
+    return uid ? 'https://t.me/' + BOT_USERNAME + '?start=ref_' + uid : '';
+  }
+  function shareRefLink() {
+    var link = refLink();
+    if (!link) return;
+    var text = 'BazarGoo-তে জয়েন করুন — টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন! 🛍️';
+    if (tg && tg.initData && tg.openTelegramLink) {
+      try {
+        tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text));
+        return;
+      } catch (e) { /* fall through */ }
+    }
+    window.open('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text), '_blank');
+  }
+  // ---------- Friend menu (v18) ----------
+  // Referral link + invite/share, the 3-level downline list, and the
+  // cumulative referral earnings (flat bonuses + % commissions).
+  var friendLoaded = false;
+  function loadFriend() {
+    var sec = $('friendSection');
+    if (!sec) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) { sec.hidden = true; return; }
+    sec.hidden = false;
+    $('friendLinkText').textContent = refLink();
+    var cb = $('friendCopyBtn');
+    if (cb) cb.onclick = function () { copyRefLink(cb); };
+    var sb = $('friendShareBtn');
+    if (sb) sb.onclick = function () { shareRefLink(); };
+    fetch(WORKER_URL + '/referrals?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        friendLoaded = true;
+        $('friendTotal').textContent = 'রেফারেল থেকে মোট আয়: ' + bnNum(fmtZero(data.referral_earnings || 0)) + ' ZERO';
+        var list = $('friendList');
+        var refs = Array.isArray(data.referrals) ? data.referrals : [];
+        $('friendEmpty').hidden = refs.length > 0;
+        if (!refs.length) { list.innerHTML = ''; return; }
+        var html = '';
+        refs.forEach(function (r) {
+          html += '<article class="pdf-card">' +
+            '<div class="pdf-title">' + esc(r.name || 'বন্ধু') + '</div>' +
+            '<div class="pdf-desc">লেভেল ' + bnNum(r.level || 1) +
+            (r.joined ? ' • জয়েন: ' + bnNum(String(r.joined)) : '') + '</div>' +
+            '<div class="pdf-price-row"><span class="pdf-price">' + bnNum(fmtZero(r.lifetime || 0)) + ' ZERO আয় করেছে</span></div>' +
+            '</article>';
+        });
+        list.innerHTML = html;
+      })
+      .catch(function () {});
+  }
+  // ---------- Profile menu: wallet + histories (v18) ----------
+  // Withdraw / Deposit are DISABLED for now (UI only, "শীঘ্রই আসছে");
+  // auto-withdraw comes later. Buy reuses the existing shop / PDF
+  // flows — no new purchase logic.
+  function loadProfile() {
+    var sec = $('profileSection');
+    if (!sec) return;
+    if (!earnLoaded) { loadTasks(); return; }
+    sec.hidden = false;
+    renderProfile();
+    renderWallet();
+  }
+  function renderWallet() {
+    var el = $('walletCard');
+    if (!el) return;
+    if (!earnProfile) { el.innerHTML = ''; return; }
+    var sec = $('profileSection');
+    if (sec) sec.hidden = false;
+    el.innerHTML =
+      '<div class="earn-profile-top">' +
+      '<div class="earn-avatar">👛</div>' +
+      '<div><div class="earn-name">ZERO ওয়ালেট</div>' +
+      '<div class="earn-level">ব্যালেন্স — শুধু অ্যাপের ভেতরের হিসাব</div></div>' +
+      '<div class="earn-balance-big">' + bnNum(fmtZero(earnBalance)) + ' ZERO</div>' +
+      '</div>' +
+      '<div class="wallet-actions">' +
+      '<button class="btn-secondary" type="button" disabled>⬆️ উইথড্র — শীঘ্রই আসছে</button>' +
+      '<button class="btn-secondary" type="button" disabled>⬇️ ডিপোজিট — শীঘ্রই আসছে</button>' +
+      '<button class="btn-primary" type="button" data-wallet-shop>🛍️ দোকান দেখুন</button>' +
+      '<button class="btn-primary" type="button" data-wallet-pdf>📚 PDF কিনুন</button>' +
+      '</div>';
+    var shopBtn = el.querySelector('[data-wallet-shop]');
+    if (shopBtn) shopBtn.onclick = function () { setActiveNav('shop'); scrollToEl($('chips')); };
+    var pdfBtn = el.querySelector('[data-wallet-pdf]');
+    if (pdfBtn) pdfBtn.onclick = function () { setActiveNav('mypdf'); scrollToEl($('myPdfSection')); };
+  }
+  var HISTORY_TYPE_LABELS = {
+    task: 'টাস্ক', commission: 'কমিশন', referral_bonus: 'রেফারেল বোনাস',
+    redeem: 'রিডিম', purchase: 'কেনা',
+  };
+  var EARNING_SOURCE_LABELS = {
+    checkin: 'চেক-ইন', quiz: 'কুইজ', ad: 'বিজ্ঞাপন', video_daily: 'ভিডিও',
+    react_daily: 'রিঅ্যাক্ট', join_bazargoo: 'জয়েন', join_earnplaygame: 'জয়েন',
+    join_cryptoguru: 'জয়েন', join_adsterratt: 'জয়েন',
+    commission: 'কমিশন', referral: 'রেফারেল বোনাস',
+  };
+  function historyRowHTML(e) {
+    var amt = Number(e.amount) || 0;
+    var cls = amt >= 0 ? 'pos' : 'neg';
+    var sign = amt >= 0 ? '+' : '−';
+    var date = e.ts ? String(e.ts).slice(0, 10) : '';
+    return '<div class="hist-row"><div><div class="hist-title">' +
+      esc(HISTORY_TYPE_LABELS[e.type] || e.type || 'লেনদেন') +
+      (e.note ? ' — ' + esc(e.note) : '') + '</div>' +
+      '<div class="hist-date">' + bnNum(date) + '</div></div>' +
+      '<div class="hist-amt ' + cls + '">' + sign + bnNum(fmtZero(Math.abs(amt))) + ' ZERO</div></div>';
+  }
+  function loadHistory() {
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) return;
+    fetch(WORKER_URL + '/history?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var list = $('historyList');
+        var entries = Array.isArray(data.entries) ? data.entries : [];
+        $('historyEmpty').hidden = entries.length > 0;
+        list.innerHTML = entries.map(historyRowHTML).join('');
+      })
+      .catch(function () {});
+    fetch(WORKER_URL + '/history?user_id=' + encodeURIComponent(uid) + '&kind=earning')
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var totals = data.totals || {};
+        var keys = Object.keys(totals);
+        var totEl = $('earningTotals');
+        $('earningEmpty').hidden = keys.length > 0;
+        totEl.innerHTML = keys.map(function (k) {
+          return '<article class="pdf-card"><div class="pdf-title">' +
+            esc(EARNING_SOURCE_LABELS[k] || k) + '</div>' +
+            '<div class="pdf-price-row"><span class="pdf-price">+' + bnNum(fmtZero(totals[k])) + ' ZERO</span></div></article>';
+        }).join('');
+        var entries = Array.isArray(data.entries) ? data.entries : [];
+        $('earningList').innerHTML = entries.map(historyRowHTML).join('');
+      })
+      .catch(function () {});
   }
   function redeemPdf(id) {
     var uid = tgUserId();
