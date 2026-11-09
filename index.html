@@ -71,12 +71,42 @@
   </section>
 
   <section id="earnSection" class="deals" hidden>
-    <h2>💰 ZERO আয় করুন</h2>
-    <div id="earnProfile" hidden></div>
+    <h2>✅ টাস্ক</h2>
     <div id="earnStreak" hidden></div>
     <div id="earnBalance" class="pdf-note">আপনার ZERO: ০</div>
+    <div id="earnDeviceNote" class="form-error" hidden></div>
     <div id="earnTaskRow" class="deals-row"></div>
     <div class="pdf-note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — নগদ তোলা যাবে না।</div>
+  </section>
+
+  <section id="friendSection" class="deals" hidden>
+    <h2>👥 বন্ধু</h2>
+    <div id="friendTotal" class="pdf-note">রেফারেল থেকে মোট আয়: ০ ZERO</div>
+    <div class="earn-group-title">🔗 আপনার রেফারেল লিংক</div>
+    <div class="friend-link-row">
+      <code id="friendLinkText"></code>
+      <button id="friendCopyBtn" class="btn-secondary" type="button">📋 কপি করুন</button>
+      <button id="friendShareBtn" class="btn-primary" type="button">↗ শেয়ার করুন</button>
+    </div>
+    <div class="pdf-note">বন্ধু প্রথম চেক-ইন করলেই বোনাস — লেভেল ১: ১০ · লেভেল ২: ৫ · লেভেল ৩: ২ ZERO। তার টাস্ক আয়েও কমিশন পাবেন: লেভেল ১: ৩% · লেভেল ২: ২% · লেভেল ৩: ১%।</div>
+    <div class="earn-group-title">👥 আমার রেফারেল লিস্ট</div>
+    <div id="friendList" class="deals-row"></div>
+    <div id="friendEmpty" class="pdf-note" hidden>এখনো কেউ আপনার লিংকে জয়েন করেনি — লিংকটি শেয়ার করুন।</div>
+  </section>
+
+  <section id="profileSection" class="deals" hidden>
+    <h2>👤 প্রোফাইল</h2>
+    <div id="profileCard" hidden></div>
+    <div class="earn-group-title">👛 ওয়ালেট</div>
+    <div id="walletCard" class="earn-profile"></div>
+    <div class="earn-group-title">💳 লেনদেনের ইতিহাস</div>
+    <div id="historyList" class="deals-row"></div>
+    <div id="historyEmpty" class="pdf-note" hidden>এখনো কোনো লেনদেন হয়নি।</div>
+    <div class="earn-group-title">📈 আয়ের ইতিহাস</div>
+    <div id="earningTotals" class="deals-row"></div>
+    <div id="earningList" class="deals-row"></div>
+    <div id="earningEmpty" class="pdf-note" hidden>এখনো কোনো আয় হয়নি — টাস্ক করুন।</div>
+    <div class="pdf-note">উইথড্র ও ডিপোজিট এখনো চালু হয়নি — শীঘ্রই আসছে। অটো উইথড্র পরে আসবে।</div>
   </section>
 
   <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
@@ -284,15 +314,19 @@
     </div>
   </div>
 
-  <!-- Bottom navigation (v16) -->
+  <!-- Bottom navigation (v18) -->
   <nav id="bottomNav" class="bottom-nav" aria-label="মূল মেনু">
     <button type="button" class="bottom-nav-tab active" data-nav-tab="shop" aria-label="দোকান">
       <span class="bottom-nav-icon">🛍️</span>
       <span class="bottom-nav-label">দোকান</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="earn" aria-label="আয়">
-      <span class="bottom-nav-icon">💰</span>
-      <span class="bottom-nav-label">আয়</span>
+    <button type="button" class="bottom-nav-tab" data-nav-tab="tasks" aria-label="টাস্ক">
+      <span class="bottom-nav-icon">✅</span>
+      <span class="bottom-nav-label">টাস্ক</span>
+    </button>
+    <button type="button" class="bottom-nav-tab" data-nav-tab="friend" aria-label="বন্ধু">
+      <span class="bottom-nav-icon">👥</span>
+      <span class="bottom-nav-label">বন্ধু</span>
     </button>
     <button type="button" class="bottom-nav-tab" data-nav-tab="mypdf" aria-label="আমার PDF">
       <span class="bottom-nav-icon">📚</span>
@@ -304,6 +338,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>
