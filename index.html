@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>BazarGoo — অনলাইন শপ</title>
+<title data-i18n="common.page_title">BazarGoo — অনলাইন শপ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -14,48 +14,49 @@
       <span id="logoText" class="logo-text" style="display:none">BazarGoo</span>
       <div class="brand-sub">
         <span class="brand-name">BazarGoo</span>
-        <span class="brand-tag">অনলাইন শপ • bazargoo.com</span>
+        <span class="brand-tag" data-i18n="common.page_subtitle">অনলাইন শপ • bazargoo.com</span>
       </div>
     </div>
+    <button id="balancePill" class="balance-pill" type="button" aria-label="Wallet" data-i18n-aria-label="wallet.profile_wallet_section_title">🪙 <strong id="balancePillValue">0</strong> ZERO</button>
     <div class="header-actions">
-      <button id="ordersBtn" class="orders-btn" type="button" aria-label="আমার অর্ডার দেখুন">
+      <button id="ordersBtn" class="orders-btn" type="button" aria-label="আমার অর্ডার দেখুন" data-i18n-aria-label="cart.view_my_orders">
         📦
       </button>
-      <button id="cartBtn" class="cart-btn" type="button" aria-label="কার্ট দেখুন">
+      <button id="cartBtn" class="cart-btn" type="button" aria-label="কার্ট দেখুন" data-i18n-aria-label="cart.view_cart">
         🛒 <span id="cartCount" class="cart-count" hidden>0</span>
       </button>
     </div>
   </header>
 
   <div id="couponBanner" class="coupon-banner" role="button" tabindex="0">
-    <span class="coupon-banner-text">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>
-    <span class="coupon-banner-hint">চাপ দিলে কপি হবে</span>
+    <span class="coupon-banner-text" data-i18n="coupons.banner_first_order_5pct_bazar5">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>
+    <span class="coupon-banner-hint" data-i18n="coupons.banner_tap_to_copy">চাপ দিলে কপি হবে</span>
   </div>
 
   <div class="toolbar">
     <div class="search-wrap">
-      <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন">
-      <button id="searchClear" class="search-clear" type="button" aria-label="সার্চ মুছুন" hidden>✕</button>
+      <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন" data-i18n-placeholder="common.search_products_placeholder" data-i18n-aria-label="common.search_products_label">
+      <button id="searchClear" class="search-clear" type="button" aria-label="সার্চ মুছুন" hidden data-i18n-aria-label="shop.clear_search">✕</button>
     </div>
-    <select id="sortSelect" aria-label="সাজান">
-      <option value="default">সাজান: জনপ্রিয়</option>
-      <option value="price-asc">দাম: কম থেকে বেশি</option>
-      <option value="price-desc">দাম: বেশি থেকে কম</option>
-      <option value="discount-desc">ছাড়: বেশি থেকে কম</option>
+    <select id="sortSelect" aria-label="সাজান" data-i18n-aria-label="common.sort_label">
+      <option value="default" data-i18n="common.sort_popular">সাজান: জনপ্রিয়</option>
+      <option value="price-asc" data-i18n="common.sort_price_low_to_high">দাম: কম থেকে বেশি</option>
+      <option value="price-desc" data-i18n="common.sort_price_high_to_low">দাম: বেশি থেকে কম</option>
+      <option value="discount-desc" data-i18n="coupons.sort_discount_high_to_low">ছাড়: বেশি থেকে কম</option>
     </select>
   </div>
   <p id="searchCount" class="search-count" hidden></p>
 
   <section id="dealsSection" class="deals" hidden>
     <div class="deals-head">
-      <h2>⚡ ফ্ল্যাশ ডিল</h2>
-      <span id="flashTimer" class="flash-timer">শেষ হতে বাকি --:--:--</span>
+      <h2 data-i18n="common.flash_deal">⚡ ফ্ল্যাশ ডিল</h2>
+      <span id="flashTimer" class="flash-timer" data-i18n="common.flash_deal_ends_in_timer">শেষ হতে বাকি --:--:--</span>
     </div>
     <div id="dealsRow" class="deals-row"></div>
   </section>
 
   <section id="recentSection" class="deals" hidden>
-    <h2>🕐 সম্প্রতি দেখা</h2>
+    <h2 data-i18n="common.recently_viewed">🕐 সম্প্রতি দেখা</h2>
     <div id="recentRow" class="deals-row"></div>
   </section>
 
@@ -65,108 +66,136 @@
   </section>
 
   <section id="myPdfSection" class="deals" hidden>
-    <h2>📚 আমার PDF</h2>
+    <h2 data-i18n="pdfs.my_pdfs_title">📚 আমার PDF</h2>
     <div id="myPdfRow" class="deals-row"></div>
     <div id="myPdfNote" class="pdf-note"></div>
   </section>
 
   <section id="earnSection" class="deals" hidden>
-    <h2>✅ টাস্ক</h2>
+    <h2 class="section-heading">EARN</h2>
     <div id="earnLevelBar" hidden></div>
     <div id="earnStreak" hidden></div>
     <div id="earnMonthly" hidden></div>
-    <div id="earnBalance" class="pdf-note">আপনার ZERO: ০</div>
+    <div id="earnBalance" class="pdf-note" data-i18n="common.your_zero_balance">আপনার ZERO: ০</div>
     <div id="earnDeviceNote" class="form-error" hidden></div>
     <div id="spinBox" hidden></div>
     <div id="earnTaskRow" class="deals-row"></div>
     <div id="leaderboardBox" hidden></div>
-    <div class="pdf-note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — জমা ZERO Wallet থেকে তুলতেও পারবেন।</div>
+    <div class="pdf-note" data-i18n="pdfs.redeem_pdfs_withdraw_note">টাস্ক করে ZERO জমিয়ে PDF রিডিম করুন — জমা ZERO Wallet থেকে তুলতেও পারবেন।</div>
   </section>
 
   <section id="friendSection" class="deals" hidden>
-    <h2>👥 বন্ধু</h2>
-    <div id="friendTotal" class="pdf-note">রেফারেল থেকে মোট আয়: ০ ZERO</div>
-    <div class="earn-group-title">🔗 আপনার রেফারেল লিংক</div>
+    <h2 data-i18n="friend.friends_heading">👥 বন্ধু</h2>
+    <div id="friendTotal" class="pdf-note" data-i18n="friend.total_referral_earnings_zero">রেফারেল থেকে মোট আয়: ০ ZERO</div>
+    <div id="friendStats" class="stat-tiles-row" hidden></div>
+    <div class="earn-group-title" data-i18n="friend.your_referral_link">🔗 আপনার রেফারেল লিংক</div>
     <div class="friend-link-row">
       <code id="friendLinkText"></code>
-      <button id="friendCopyBtn" class="btn-secondary" type="button">📋 কপি করুন</button>
-      <button id="friendShareBtn" class="btn-primary" type="button">↗ শেয়ার করুন</button>
+      <button id="friendCopyBtn" class="btn-secondary" type="button" data-i18n="common.copy_button">📋 কপি করুন</button>
+      <button id="friendShareBtn" class="btn-primary" type="button" data-i18n="common.share_button">↗ শেয়ার করুন</button>
     </div>
-    <div class="pdf-note">বন্ধু প্রথম চেক-ইন করলেই বোনাস — লেভেল ১: ১০ · লেভেল ২: ৫ · লেভেল ৩: ২ ZERO। তার টাস্ক আয়েও কমিশন পাবেন: লেভেল ১: ৩% · লেভেল ২: ২% · লেভেল ৩: ১%।</div>
-    <div class="earn-group-title">👥 আমার রেফারেল লিস্ট</div>
+    <div class="pdf-note" data-i18n="profile.referral_bonus_commission_note">বন্ধু প্রথম চেক-ইন করলেই বোনাস — লেভেল ১: ১০ · লেভেল ২: ৫ · লেভেল ৩: ২ ZERO। তার টাস্ক আয়েও কমিশন পাবেন: লেভেল ১: ৩% · লেভেল ২: ২% · লেভেল ৩: ১%।</div>
+    <div class="earn-group-title" data-i18n="friend.my_referral_list">👥 আমার রেফারেল লিস্ট</div>
     <div id="friendList" class="deals-row"></div>
-    <div id="friendEmpty" class="pdf-note" hidden>এখনো কেউ আপনার লিংকে জয়েন করেনি — লিংকটি শেয়ার করুন।</div>
-    <div class="earn-group-title">🎁 রেফারেল প্রতিযোগিতা</div>
+    <div id="friendEmpty" class="pdf-note" hidden data-i18n="friend.no_referrals_yet">এখনো কেউ আপনার লিংকে জয়েন করেনি — লিংকটি শেয়ার করুন।</div>
+    <div class="earn-group-title" data-i18n="contest.referral_contest_title">🎁 রেফারেল প্রতিযোগিতা</div>
     <div id="contestBox" hidden></div>
   </section>
 
   <section id="profileSection" class="deals" hidden>
-    <h2>👤 প্রোফাইল</h2>
+    <h2 data-i18n="profile.profile_tab_title">👤 প্রোফাইল</h2>
+    <!-- Language toggle (i18n Phase 1): segmented বাংলা | English, .chip
+         buttons (styles.css has .chip/.chip.active); both names always
+         shown so it works in either language. Wired in wireEvents(). -->
+    <div class="chips" role="tablist" aria-label="Language">
+      <button class="chip" type="button" data-lang="bn">বাংলা</button>
+      <button class="chip" type="button" data-lang="en">English</button>
+    </div>
     <div id="profileCard" hidden></div>
-    <div class="earn-group-title">👛 ওয়ালেট</div>
+    <div class="earn-group-title" data-i18n="wallet.profile_wallet_section_title">👛 ওয়ালেট</div>
     <div id="walletCard" class="earn-profile"></div>
-    <div class="earn-group-title">🎟️ ZERO কুপন</div>
+    <div class="earn-group-title" data-i18n="coupons.zero_coupon_tab">🎟️ ZERO কুপন</div>
     <div id="couponCard" class="earn-profile"></div>
-    <div class="earn-group-title">🎟️ আমার কুপন</div>
+    <div class="earn-group-title" data-i18n="coupons.my_coupons_tab">🎟️ আমার কুপন</div>
     <div id="myCouponsList" class="deals-row"></div>
-    <div id="myCouponsEmpty" class="pdf-note" hidden>এখনো কোনো কুপন কেনা হয়নি — ১০০ ZERO জমিয়ে ৫% ছাড়ের কুপন কিনুন।</div>
-    <div class="earn-group-title">💳 লেনদেনের ইতিহাস</div>
+    <div id="myCouponsEmpty" class="pdf-note" hidden data-i18n="coupons.no_coupon_yet_save_100_zero">এখনো কোনো কুপন কেনা হয়নি — ১০০ ZERO জমিয়ে ৫% ছাড়ের কুপন কিনুন।</div>
+    <div class="earn-group-title" data-i18n="shop.transaction_history_heading">💳 লেনদেনের ইতিহাস</div>
     <div id="historyList" class="deals-row"></div>
-    <div id="historyEmpty" class="pdf-note" hidden>এখনো কোনো লেনদেন হয়নি।</div>
-    <div class="earn-group-title">📈 আয়ের ইতিহাস</div>
+    <div id="historyEmpty" class="pdf-note" hidden data-i18n="shop.no_transactions_yet">এখনো কোনো লেনদেন হয়নি।</div>
+    <div class="earn-group-title" data-i18n="shop.earnings_history_heading">📈 আয়ের ইতিহাস</div>
     <div id="earningTotals" class="deals-row"></div>
     <div id="earningList" class="deals-row"></div>
-    <div id="earningEmpty" class="pdf-note" hidden>এখনো কোনো আয় হয়নি — টাস্ক করুন।</div>
-    <div class="pdf-note">ZERO ও GRAM উইথড্র ও ডিপোজিট চালু হয়েছে — Wallet খুলে দেখুন। তোলা ম্যানুয়াল — অ্যাডমিন পাঠিয়ে txid জানিয়ে দেন। ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই।</div>
+    <div id="earningEmpty" class="pdf-note" hidden data-i18n="tasks.no_earnings_yet_do_tasks">এখনো কোনো আয় হয়নি — টাস্ক করুন।</div>
+    <div class="pdf-note" data-i18n="wallet.profile_wallet_live_note">ZERO ও GRAM উইথড্র ও ডিপোজিট চালু হয়েছে — Wallet খুলে দেখুন। তোলা ম্যানুয়াল — অ্যাডমিন পাঠিয়ে txid জানিয়ে দেন। ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই।</div>
+  </section>
+
+  <!-- Wallet screen (v28, Option A — header pill + full screen, no 7th tab).
+       Hero, currency rows, gate card and guide are rendered by
+       renderWalletScreen() in app.js; Deposit/Withdraw open the
+       existing v26 wallet sheet. -->
+  <section id="walletSection" class="deals" hidden>
+    <h2 data-i18n="wallet.profile_wallet_section_title">👛 ওয়ালেট</h2>
+    <div id="walletHero"></div>
+    <div id="walletCurrencies"></div>
+    <div class="wallet-actions">
+      <button id="walletDepositBtn" class="btn-primary" type="button">⬇️ ডিপোজিট</button>
+      <button id="walletWithdrawBtn" class="btn-secondary" type="button">⬆️ উইথড্র</button>
+    </div>
+    <div class="pdf-note" data-i18n="wallet.withdraw_limits_note"></div>
+    <div id="walletGateCard" class="wallet-gate-card" hidden></div>
+    <div class="earn-group-title" data-i18n="shop.transaction_history_heading">💳 লেনদেনের ইতিহাস</div>
+    <div id="walletHistoryList" class="deals-row"></div>
+    <div id="walletHistoryEmpty" class="pdf-note" hidden data-i18n="shop.no_transactions_yet">এখনো কোনো লেনদেন হয়নি।</div>
+    <div id="walletGuide" class="earn-profile"></div>
   </section>
 
   <section id="browserSection" class="deals">
-    <h2>🌐 ব্রাউজার</h2>
+    <h2 data-i18n="browser.browser_heading">🌐 ব্রাউজার</h2>
     <div class="browser-bar">
-      <input id="browserInput" type="text" placeholder="লিংক লিখুন বা সার্চ করুন…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ঠিকানা বা সার্চ">
-      <button id="browserGoBtn" class="btn-primary" type="button">যাও</button>
+      <input id="browserInput" type="text" placeholder="লিংক লিখুন বা সার্চ করুন…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ঠিকানা বা সার্চ" data-i18n-placeholder="browser.link_or_search_placeholder" data-i18n-aria-label="browser.address_or_search_aria_label">
+      <button id="browserGoBtn" class="btn-primary" type="button" data-i18n="common.browser_go_button">যাও</button>
     </div>
     <p id="browserError" class="form-error" hidden></p>
-    <p class="browser-hint">লিংক লিখে যাও চাপো — Telegram-এর ব্রাউজারেই খুলবে, ফিরে আসতে ব্যাক চাপো।</p>
-    <div class="earn-group-title">⚡ দ্রুত লিংক</div>
+    <p class="browser-hint" data-i18n="browser.browser_hint">লিংক লিখে যাও চাপো — Telegram-এর ব্রাউজারেই খুলবে, ফিরে আসতে ব্যাক চাপো।</p>
+    <div class="earn-group-title" data-i18n="browser.quick_links_heading">⚡ দ্রুত লিংক</div>
     <div id="browserQuickLinks" class="deals-row"></div>
-    <div class="earn-group-title">🕐 সাম্প্রতিক</div>
+    <div class="earn-group-title" data-i18n="common.recent">🕐 সাম্প্রতিক</div>
     <div id="browserHistoryList" class="deals-row"></div>
-    <div id="browserHistoryEmpty" class="pdf-note" hidden>এখনো কিছু ব্রাউজ করা হয়নি — উপরে লিংক লিখে শুরু করুন।</div>
-    <button id="browserClearBtn" class="btn-secondary" type="button" hidden>🗑️ ইতিহাস মুছুন</button>
+    <div id="browserHistoryEmpty" class="pdf-note" hidden data-i18n="browser.no_history_yet">এখনো কিছু ব্রাউজ করা হয়নি — উপরে লিংক লিখে শুরু করুন।</div>
+    <button id="browserClearBtn" class="btn-secondary" type="button" hidden data-i18n="common.clear_history">🗑️ ইতিহাস মুছুন</button>
   </section>
 
-  <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি"></div>
+  <div id="chips" class="chips" role="tablist" aria-label="ক্যাটাগরি" data-i18n-aria-label="common.category_label"></div>
 
   <main>
     <div id="grid" class="grid"></div>
     <div id="emptyState" class="empty" hidden>
-      <p>😕 কিছু পাওয়া যায়নি</p>
-      <p class="empty-sub">অন্য কিছু লিখে খুঁজে দেখুন।</p>
+      <p data-i18n="shop.nothing_found">😕 কিছু পাওয়া যায়নি</p>
+      <p class="empty-sub" data-i18n="shop.try_another_search">অন্য কিছু লিখে খুঁজে দেখুন।</p>
     </div>
     <div id="loadError" class="empty" hidden>
-      <p>প্রোডাক্ট লোড করা যায়নি।</p>
-      <p class="empty-sub">ইন্টারনেট চেক করে আবার খুলুন।</p>
+      <p data-i18n="common.products_load_failed">প্রোডাক্ট লোড করা যায়নি।</p>
+      <p class="empty-sub" data-i18n="common.check_internet_reopen">ইন্টারনেট চেক করে আবার খুলুন।</p>
     </div>
   </main>
 
-  <footer class="app-footer">
+  <footer class="app-footer" data-i18n="common.prices_from_bazargoo_date">
     দাম bazargoo.com থেকে নেওয়া • ৮ নভেম্বর ২০২৬
   </footer>
 
   <!-- Sticky cart bar (used outside Telegram; inside Telegram the MainButton mirrors it) -->
   <div id="stickyBar" class="sticky-bar" hidden>
     <div class="sticky-info">
-      <span id="stickyCount">০টি পণ্য</span>
+      <span id="stickyCount" data-i18n="common.zero_products">০টি পণ্য</span>
       <strong id="stickyTotal">৳০</strong>
     </div>
-    <button id="stickyCartBtn" class="btn-primary" type="button">কার্ট দেখুন</button>
+    <button id="stickyCartBtn" class="btn-primary" type="button" data-i18n="cart.view_cart">কার্ট দেখুন</button>
   </div>
 
   <!-- Product detail sheet -->
   <div id="detailSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="detailSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="detailSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <img id="detailImg" class="detail-img" src="" alt="">
       <div class="sheet-body">
         <h2 id="detailName"></h2>
@@ -179,23 +208,23 @@
         <p id="detailCategory" class="detail-cat"></p>
         <div class="detail-actions">
           <div id="detailQty" class="qty-control"></div>
-          <a id="detailLink" class="btn-link" href="#" target="_blank" rel="noopener">bazargoo.com-এ দেখুন ↗</a>
+          <a id="detailLink" class="btn-link" href="#" target="_blank" rel="noopener" data-i18n="common.view_on_bazargoo">bazargoo.com-এ দেখুন ↗</a>
         </div>
         <div class="detail-extra">
-          <button id="detailWishBtn" class="btn-secondary" type="button">♡ পছন্দের তালিকায় যোগ করুন</button>
-          <button id="detailShareBtn" class="btn-secondary" type="button">↗ শেয়ার করুন</button>
+          <button id="detailWishBtn" class="btn-secondary" type="button" data-i18n="common.add_to_favourites">♡ পছন্দের তালিকায় যোগ করুন</button>
+          <button id="detailShareBtn" class="btn-secondary" type="button" data-i18n="common.share_button">↗ শেয়ার করুন</button>
         </div>
         <div id="reviewSection" class="review-section">
-          <h3>রিভিউ</h3>
+          <h3 data-i18n="shop.reviews_heading">রিভিউ</h3>
           <div id="reviewSummary" class="review-summary"></div>
           <div id="approvedReviews" class="approved-reviews"></div>
           <div id="myReviewBox" class="my-review" hidden></div>
           <div id="reviewForm" class="review-form">
-            <p class="review-form-title">রিভিউ লিখুন</p>
-            <div id="reviewStars" class="review-stars" role="radiogroup" aria-label="রেটিং দিন"></div>
-            <textarea id="reviewText" rows="3" maxlength="300" placeholder="আপনার অভিজ্ঞতা লিখুন (ঐচ্ছিক)…"></textarea>
+            <p class="review-form-title" data-i18n="shop.write_review">রিভিউ লিখুন</p>
+            <div id="reviewStars" class="review-stars" role="radiogroup" aria-label="রেটিং দিন" data-i18n-aria-label="common.rate_it"></div>
+            <textarea id="reviewText" rows="3" maxlength="300" placeholder="আপনার অভিজ্ঞতা লিখুন (ঐচ্ছিক)…" data-i18n-placeholder="common.write_review_placeholder"></textarea>
             <p id="reviewError" class="form-error" hidden></p>
-            <button id="reviewSubmitBtn" class="btn-primary btn-block" type="button">রিভিউ পাঠান</button>
+            <button id="reviewSubmitBtn" class="btn-primary btn-block" type="button" data-i18n="shop.submit_review">রিভিউ পাঠান</button>
           </div>
         </div>
       </div>
@@ -205,37 +234,37 @@
   <!-- Cart sheet -->
   <div id="cartSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="cartSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="cartSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
-        <h2>আপনার কার্ট 🛒</h2>
+        <h2 data-i18n="cart.your_cart">আপনার কার্ট 🛒</h2>
         <div id="cartItems"></div>
         <div id="cartEmpty" class="empty" hidden>
-          <p>কার্ট খালি।</p>
-          <p class="empty-sub">পছন্দের পণ্য যোগ করুন।</p>
+          <p data-i18n="cart.cart_empty">কার্ট খালি।</p>
+          <p class="empty-sub" data-i18n="common.add_favourite_products_empty">পছন্দের পণ্য যোগ করুন।</p>
         </div>
         <div id="checkoutForm" class="checkout">
           <h3>Delivery</h3>
           <div class="field">
             <label for="buyerName">Full Name</label>
-            <input id="buyerName" type="text" placeholder="আপনার পুরো নাম" autocomplete="name">
+            <input id="buyerName" type="text" placeholder="আপনার পুরো নাম" autocomplete="name" data-i18n-placeholder="common.full_name_placeholder">
           </div>
           <div class="field">
             <label for="buyerPhone">Mobile Number</label>
             <input id="buyerPhone" type="tel" placeholder="01XXXXXXXXX" autocomplete="tel" inputmode="tel">
-            <button id="fillPhoneBtn" class="mini-btn" type="button" hidden>📱 Telegram থেকে নম্বর নিন</button>
+            <button id="fillPhoneBtn" class="mini-btn" type="button" hidden data-i18n="common.get_number_from_telegram">📱 Telegram থেকে নম্বর নিন</button>
             <p id="phoneNote" class="field-hint" hidden></p>
           </div>
           <div class="field">
             <label for="buyerAddress">Full Address</label>
-            <textarea id="buyerAddress" rows="2" placeholder="বাসা/হোল্ডিং, রোড, এলাকা, থানা"></textarea>
+            <textarea id="buyerAddress" rows="2" placeholder="বাসা/হোল্ডিং, রোড, এলাকা, থানা" data-i18n-placeholder="common.address_placeholder"></textarea>
           </div>
           <div class="field">
-            <label for="buyerDistrict">District / জেলা</label>
+            <label for="buyerDistrict" data-i18n="cart.district_label">District / জেলা</label>
             <select id="buyerDistrict">
-              <option value="">জেলা বাছুন…</option>
+              <option value="" data-i18n="cart.choose_district_placeholder">জেলা বাছুন…</option>
             </select>
           </div>
-          <p id="tgNameHint" class="field-hint">নাম টেলিগ্রাম থেকে নেওয়া হয়েছে — ভুল থাকলে ঠিক করে নিন।</p>
+          <p id="tgNameHint" class="field-hint" data-i18n="common.name_from_telegram_hint">নাম টেলিগ্রাম থেকে নেওয়া হয়েছে — ভুল থাকলে ঠিক করে নিন।</p>
 
           <h3>Shipping</h3>
           <label class="option-card selected" data-zone="inside">
@@ -257,20 +286,20 @@
           <p class="option-sub">Pay with cash upon delivery of your order.</p>
 
           <div class="coupon-row">
-            <input id="couponInput" type="text" placeholder="কুপন কোড (যেমন: BAZAR5)" autocomplete="off" autocapitalize="characters">
-            <button id="applyCouponBtn" class="btn-apply" type="button">প্রয়োগ করুন</button>
+            <input id="couponInput" type="text" placeholder="কুপন কোড (যেমন: BAZAR5)" autocomplete="off" autocapitalize="characters" data-i18n-placeholder="coupons.coupon_code_placeholder">
+            <button id="applyCouponBtn" class="btn-apply" type="button" data-i18n="common.apply_button">প্রয়োগ করুন</button>
           </div>
           <p id="couponNote" class="coupon-note" hidden></p>
 
           <div class="cart-summary">
-            <div class="summary-row small"><span>পণ্যের মোট</span><span id="subtotalVal">৳০</span></div>
-            <div class="summary-row small" id="discountRow" hidden><span id="discountLabel">ছাড় (BAZAR5 — ৫%)</span><span id="discountVal">−৳০</span></div>
-            <div class="summary-row small"><span>ডেলিভারি চার্জ</span><span id="shippingVal">৳৬০</span></div>
-            <div class="summary-row"><span>মোট</span><strong id="grandTotalVal">৳০</strong></div>
+            <div class="summary-row small"><span data-i18n="common.products_total">পণ্যের মোট</span><span id="subtotalVal">৳০</span></div>
+            <div class="summary-row small" id="discountRow" hidden><span id="discountLabel" data-i18n="coupons.discount_bazar5_5pct">ছাড় (BAZAR5 — ৫%)</span><span id="discountVal" data-i18n="common.discount_zero">−৳০</span></div>
+            <div class="summary-row small"><span data-i18n="cart.delivery_charge">ডেলিভারি চার্জ</span><span id="shippingVal">৳৬০</span></div>
+            <div class="summary-row"><span data-i18n="common.total">মোট</span><strong id="grandTotalVal">৳০</strong></div>
           </div>
           <p id="formError" class="form-error" hidden></p>
           <button id="orderBtn" class="btn-placeorder btn-block" type="button">PLACE ORDER</button>
-          <p class="order-note">অর্ডারটি দোকানে পাঠানো হবে। দোকান থেকে মেসেজ করে অর্ডারটি কনফার্ম করা হবে।</p>
+          <p class="order-note" data-i18n="cart.order_confirmation_note">অর্ডারটি দোকানে পাঠানো হবে। দোকান থেকে মেসেজ করে অর্ডারটি কনফার্ম করা হবে।</p>
         </div>
       </div>
     </div>
@@ -279,16 +308,16 @@
   <!-- Orders sheet -->
   <div id="ordersSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="ordersSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="ordersSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
-        <h2>আমার অর্ডার 📦</h2>
-        <p class="orders-note">দোকান থেকে মেসেজ করে কনফার্ম করা হবে।</p>
+        <h2 data-i18n="cart.my_orders">আমার অর্ডার 📦</h2>
+        <p class="orders-note" data-i18n="common.shop_will_message_to_confirm">দোকান থেকে মেসেজ করে কনফার্ম করা হবে।</p>
         <div id="ordersList"></div>
         <div id="ordersEmpty" class="empty" hidden>
-          <p>এখনো কোনো অর্ডার নেই।</p>
-          <p class="empty-sub">প্রথম অর্ডার করলেই এখানে দেখতে পাবেন।</p>
+          <p data-i18n="cart.no_orders_yet">এখনো কোনো অর্ডার নেই।</p>
+          <p class="empty-sub" data-i18n="cart.no_orders_hint">প্রথম অর্ডার করলেই এখানে দেখতে পাবেন।</p>
         </div>
-        <button class="btn-primary btn-block" type="button" data-close="ordersSheet">বন্ধ করুন</button>
+        <button class="btn-primary btn-block" type="button" data-close="ordersSheet" data-i18n="common.close">বন্ধ করুন</button>
       </div>
     </div>
   </div>
@@ -298,15 +327,15 @@
     <div class="sheet" role="dialog" aria-modal="true">
       <div class="sheet-body confirm-body">
         <div class="confirm-icon">✅</div>
-        <h2>অর্ডার পাঠানো হয়েছে!</h2>
-        <p>ধন্যবাদ! আপনার অর্ডারটি পাঠানো হয়েছে।<br>বট থেকে শীঘ্রই কনফার্মেশন মেসেজ আসবে। কনফার্মেশন না এলে নিচের অর্ডারটি কপি করে বটের চ্যাটে পাঠান।</p>
+        <h2 data-i18n="cart.order_sent_title">অর্ডার পাঠানো হয়েছে!</h2>
+        <p><span data-i18n="cart.order_sent_message">ধন্যবাদ! আপনার অর্ডারটি পাঠানো হয়েছে।</span><br><span data-i18n="cart.order_confirmation_coming">বট থেকে শীঘ্রই কনফার্মেশন মেসেজ আসবে। কনফার্মেশন না এলে নিচের অর্ডারটি কপি করে বটের চ্যাটে পাঠান।</span></p>
         <div id="orderSummaryBox" class="order-summary" hidden>
-          <h3>অর্ডারের বিবরণ</h3>
+          <h3 data-i18n="cart.order_details_heading">অর্ডারের বিবরণ</h3>
           <pre id="orderSummaryText"></pre>
-          <button id="copyOrderBtn" class="btn-secondary btn-block" type="button">অর্ডার কপি করুন</button>
-          <p class="order-note">বট থেকে কনফার্মেশন না পেলে উপরের অর্ডারটি কপি করে চ্যাটে পাঠান।</p>
+          <button id="copyOrderBtn" class="btn-secondary btn-block" type="button" data-i18n="cart.copy_order">অর্ডার কপি করুন</button>
+          <p class="order-note" data-i18n="cart.order_copy_if_no_confirmation">বট থেকে কনফার্মেশন না পেলে উপরের অর্ডারটি কপি করে চ্যাটে পাঠান।</p>
         </div>
-        <button id="closeConfirmBtn" class="btn-primary btn-block" type="button">বন্ধ করুন</button>
+        <button id="closeConfirmBtn" class="btn-primary btn-block" type="button" data-i18n="common.close">বন্ধ করুন</button>
       </div>
     </div>
   </div>
@@ -316,15 +345,15 @@
     <div class="sheet" role="dialog" aria-modal="true">
       <div class="sheet-body confirm-body">
         <div class="confirm-icon">⭐</div>
-        <h2>রিভিউ পাঠানো হয়েছে!</h2>
-        <p>ধন্যবাদ! আপনার রিভিউটি পাঠানো হয়েছে।<br>বট থেকে কনফার্মেশন না এলে নিচের রিভিউটি কপি করে বটের চ্যাটে পাঠান।</p>
+        <h2 data-i18n="shop.review_sent_title">রিভিউ পাঠানো হয়েছে!</h2>
+        <p><span data-i18n="shop.review_sent_message">ধন্যবাদ! আপনার রিভিউটি পাঠানো হয়েছে।</span><br><span data-i18n="shop.review_copy_if_no_confirmation">বট থেকে কনফার্মেশন না এলে নিচের রিভিউটি কপি করে বটের চ্যাটে পাঠান।</span></p>
         <div id="reviewSummaryBox" class="order-summary" hidden>
-          <h3>রিভিউর বিবরণ</h3>
+          <h3 data-i18n="shop.review_details_heading">রিভিউর বিবরণ</h3>
           <pre id="reviewSummaryText"></pre>
-          <button id="copyReviewBtn" class="btn-secondary btn-block" type="button">রিভিউ কপি করুন</button>
-          <p class="order-note">বট থেকে কনফার্মেশন না পেলে উপরের রিভিউটি কপি করে চ্যাটে পাঠান।</p>
+          <button id="copyReviewBtn" class="btn-secondary btn-block" type="button" data-i18n="shop.copy_review">রিভিউ কপি করুন</button>
+          <p class="order-note" data-i18n="shop.review_copy_if_no_confirmation_above">বট থেকে কনফার্মেশন না পেলে উপরের রিভিউটি কপি করে চ্যাটে পাঠান।</p>
         </div>
-        <button id="closeReviewConfirmBtn" class="btn-primary btn-block" type="button">বন্ধ করুন</button>
+        <button id="closeReviewConfirmBtn" class="btn-primary btn-block" type="button" data-i18n="common.close">বন্ধ করুন</button>
       </div>
     </div>
   </div>
@@ -332,11 +361,11 @@
   <!-- ZERO payment info sheet -->
   <div id="pdfZeroSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="pdfZeroSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="pdfZeroSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
-        <h2>⛓️ ZERO দিয়ে কিনুন</h2>
+        <h2 data-i18n="common.buy_with_zero">⛓️ ZERO দিয়ে কিনুন</h2>
         <div id="pdfZeroBody"></div>
-        <button id="pdfZeroBotBtn" class="btn-primary btn-block" type="button">বটে গিয়ে txid পাঠান</button>
+        <button id="pdfZeroBotBtn" class="btn-primary btn-block" type="button" data-i18n="wallet.send_txid_in_bot_button">বটে গিয়ে txid পাঠান</button>
       </div>
     </div>
   </div>
@@ -344,7 +373,7 @@
   <!-- Wallet sheet (v26) -->
   <div id="walletSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="walletSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="walletSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
         <h2>👛 Wallet</h2>
         <div id="walletBody"></div>
@@ -355,42 +384,42 @@
   <!-- Promote sheet (v26) -->
   <div id="promoteSheet" class="sheet-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="promoteSheet" aria-label="বন্ধ করুন">✕</button>
+      <button class="sheet-close" type="button" data-close="promoteSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
-        <h2>📢 Promote করুন</h2>
+        <h2 data-i18n="common.promote_heading">📢 Promote করুন</h2>
         <div id="promoteBody"></div>
       </div>
     </div>
   </div>
 
   <!-- Bottom navigation (v18) -->
-  <nav id="bottomNav" class="bottom-nav" aria-label="মূল মেনু">
-    <button type="button" class="bottom-nav-tab active" data-nav-tab="shop" aria-label="দোকান">
+  <nav id="bottomNav" class="bottom-nav" aria-label="মূল মেনু" data-i18n-aria-label="common.main_menu">
+    <button type="button" class="bottom-nav-tab active" data-nav-tab="shop" aria-label="দোকান" data-i18n-aria-label="common.shop_tab">
       <span class="bottom-nav-icon">🛍️</span>
-      <span class="bottom-nav-label">দোকান</span>
+      <span class="bottom-nav-label" data-i18n="common.shop_tab">দোকান</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="tasks" aria-label="টাস্ক">
+    <button type="button" class="bottom-nav-tab" data-nav-tab="tasks" aria-label="টাস্ক" data-i18n-aria-label="tasks.nav_tasks_label">
       <span class="bottom-nav-icon">✅</span>
-      <span class="bottom-nav-label">টাস্ক</span>
+      <span class="bottom-nav-label" data-i18n="tasks.nav_tasks_label">টাস্ক</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="friend" aria-label="বন্ধু">
+    <button type="button" class="bottom-nav-tab" data-nav-tab="friend" aria-label="বন্ধু" data-i18n-aria-label="friend.nav_friends_label">
       <span class="bottom-nav-icon">👥</span>
-      <span class="bottom-nav-label">বন্ধু</span>
+      <span class="bottom-nav-label" data-i18n="friend.nav_friends_label">বন্ধু</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="mypdf" aria-label="আমার PDF">
+    <button type="button" class="bottom-nav-tab" data-nav-tab="mypdf" aria-label="আমার PDF" data-i18n-aria-label="pdfs.my_pdfs_label">
       <span class="bottom-nav-icon">📚</span>
-      <span class="bottom-nav-label">আমার PDF</span>
+      <span class="bottom-nav-label" data-i18n="pdfs.my_pdfs_label">আমার PDF</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="profile" aria-label="প্রোফাইল">
+    <button type="button" class="bottom-nav-tab" data-nav-tab="profile" aria-label="প্রোফাইল" data-i18n-aria-label="profile.profile_label">
       <span class="bottom-nav-icon">👤</span>
-      <span class="bottom-nav-label">প্রোফাইল</span>
+      <span class="bottom-nav-label" data-i18n="profile.profile_label">প্রোফাইল</span>
     </button>
-    <button type="button" class="bottom-nav-tab" data-nav-tab="browser" aria-label="ব্রাউজার">
+    <button type="button" class="bottom-nav-tab" data-nav-tab="browser" aria-label="ব্রাউজার" data-i18n-aria-label="browser.browser_nav_label">
       <span class="bottom-nav-icon">🌐</span>
-      <span class="bottom-nav-label">ব্রাউজার</span>
+      <span class="bottom-nav-label" data-i18n="browser.browser_nav_label">ব্রাউজার</span>
     </button>
   </nav>
 
-<script src="app.js?v=27"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>
