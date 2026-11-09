@@ -25,6 +25,14 @@
  * then pastes the txid to the bot for verification). Approved reviews
  * are fetched from the worker (WORKER_URL + '/reviews.json') when it is
  * set, otherwise from the static reviews.json.
+ * v23 (9 Nov 2026): PDF library grouped by category (টেস্ট / কেনাকাটা /
+ * AI টিউটোরিয়াল / ধর্মীয় বই); AI tutorials show a free preview button
+ * (public preview PDFs); religion books are reward-only — free for
+ * daily/weekly/monthly top-3 performers (GET /religion, POST /claim
+ * religion_pdf). All paid PDFs stay 1–10 Stars / 1–10 ZERO.
+ * v24 (9 Nov 2026): PDF library +15 commercial guides (35 total) in 4 new
+ * categories — অনলাইন আয় / ক্যারিয়ার / ভাষা ও পড়াশোনা / স্বাস্থ্য;
+ * health guides carry a medical disclaimer on every page.
  */
 (function () {
   'use strict';
@@ -231,10 +239,11 @@
   function loadPdfs() {
     return fetch(PDF_CATALOG_URL)
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (data) { pdfs = Array.isArray(data.pdfs) ? data.pdfs : []; renderPdfs(); })
-      .catch(function () { pdfs = []; renderPdfs(); });
+      .then(function (data) { pdfs = Array.isArray(data.pdfs) ? data.pdfs : []; renderPdfs(); loadReligion(); })
+      .catch(function () { pdfs = []; renderPdfs(); loadReligion(); });
   }
   function pdfPriceLine(p) {
+    if (p.reward_only) return '<span class="pdf-price free">🎁 পুরস্কার — টপ ৩ পারফর্মারদের জন্য ফ্রি</span>';
     if (p.free) return '<span class="pdf-price free">ফ্রি</span>';
     var parts = [];
     if (p.price_stars) parts.push('⭐ ' + bnNum(p.price_stars) + ' Stars');
@@ -243,33 +252,116 @@
     else parts.push('⛓️ ZERO: দাম ঠিক হয়নি');
     return '<span class="pdf-price">' + parts.join(' • ') + '</span>';
   }
+  // ---------- v23: PDF library by category + religion reward ----------
+  // Catalog groups: টেস্ট / কেনাকাটা / AI টিউটোরিয়াল / অনলাইন আয় /
+  // ক্যারিয়ার / ভাষা ও পড়াশোনা / স্বাস্থ্য / ধর্মীয় বই (v24: +4 groups).
+  // Tutorials show a free preview button (public preview PDF). Religion
+  // books are reward-only: free ONLY for daily/weekly/monthly top-3
+  // performers (GET /religion), claimed via POST /claim religion_pdf.
+  var PDF_CATEGORY_ORDER = ['টেস্ট', 'কেনাকাটা', 'AI টিউটোরিয়াল', 'অনলাইন আয়', 'ক্যারিয়ার', 'ভাষা ও পড়াশোনা', 'স্বাস্থ্য', 'ধর্মীয় বই'];
+  var religionData = null;
+  function religionClaimed(id) {
+    if (!religionData || !Array.isArray(religionData.pdfs)) return false;
+    var found = null;
+    religionData.pdfs.forEach(function (p) { if (p.id === id) found = p; });
+    return !!(found && found.claimed);
+  }
+  function religionStatusHtml() {
+    if (!religionData) return '<div class="pdf-note">Telegram-এ অ্যাপ খুললে আপনার র‍্যাংক দেখাবে।</div>';
+    if (religionData.eligible) {
+      var parts = [];
+      var r = religionData.ranks || {};
+      if (r.daily && r.daily <= 3) parts.push('আজ');
+      if (r.weekly && r.weekly <= 3) parts.push('এই সপ্তাহে');
+      if (r.monthly && r.monthly <= 3) parts.push('এই মাসে');
+      return '<div class="pdf-note">🎉 আপনি ' + esc(parts.join(' / ') || 'টপ ৩-এ') + ' টপ ৩-এ আছেন — নিচের বইগুলো ফ্রি নিন!</div>';
+    }
+    return '<div class="pdf-note">আজ / এই সপ্তাহে / এই মাসে টপ ৩-এ থাকলে এই বইগুলো ফ্রি পাবেন। টাস্ক করে ZERO জমিয়ে লিডারবোর্ডে উঠুন!</div>';
+  }
+  function pdfCardHtml(p) {
+    var html = '<article class="pdf-card">' +
+      '<div class="pdf-title">' + esc(p.title) + '</div>' +
+      (p.description ? '<div class="pdf-desc">' + esc(p.description) + '</div>' : '') +
+      '<div class="pdf-price-row">' + pdfPriceLine(p) + '</div>';
+    if (p.reward_only) {
+      if (religionClaimed(p.id)) {
+        html += '<div class="task-status done">নেওয়া হয়েছে ✓ — বটের চ্যাটে PDF দেখুন।</div>';
+      } else if (religionData && religionData.eligible) {
+        html += '<button class="btn-primary pdf-btn" type="button" data-religion-claim="' + esc(p.id) + '">🎁 ফ্রি নিন — পুরস্কার</button>';
+      } else {
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>🎁 টপ ৩-এ থাকলে ফ্রি পাবেন</button>';
+      }
+    } else if (p.free && p.file_url) {
+      html += '<a class="btn-primary pdf-btn" href="' + esc(p.file_url) + '" download>⬇️ ডাউনলোড করুন (বাংলা)</a>';
+      if (p.file_url_en) {
+        html += '<a class="btn-secondary pdf-btn" href="' + esc(p.file_url_en) + '" download>⬇️ Download (English)</a>';
+      }
+    } else if (p.free) {
+      html += '<span class="pdf-note">ফ্রি — শীঘ্রই আসছে</span>';
+    } else {
+      if (p.en) html += '<div class="pdf-note">বাংলা + English ভার্সন — দুটোই পাবেন</div>';
+      if (p.preview_url) {
+        html += '<a class="btn-secondary pdf-btn" href="' + esc(p.preview_url) + '" target="_blank" rel="noopener">👀 ফ্রি প্রিভিউ দেখুন</a>';
+        if (p.preview_url_en) {
+          html += '<a class="btn-secondary pdf-btn" href="' + esc(p.preview_url_en) + '" target="_blank" rel="noopener">👀 Free preview (English)</a>';
+        }
+      }
+      html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
+        '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
+      if (p.price_zero && earnBalance >= p.price_zero) {
+        html += '<button class="btn-secondary pdf-btn" type="button" data-redeem="' + esc(p.id) + '">⛓️ ZERO দিয়ে রিডিম করুন</button>';
+      }
+    }
+    return html + '</article>';
+  }
+  function loadReligion() {
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) { religionData = null; return; }
+    fetch(WORKER_URL + '/religion?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) { religionData = data; renderPdfs(); })
+      .catch(function () { religionData = null; });
+  }
+  function claimReligionPdf(id) {
+    var uid = tgUserId();
+    if (!uid) return;
+    var body = { user_id: uid, task: 'religion_pdf', item_id: id };
+    var dev = deviceId();
+    if (dev) body.device_id = dev;
+    fetch(WORKER_URL + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          showEarnAlert('🎁 PDF পাঠানো হয়েছে — বটের চ্যাটে দেখুন।');
+          loadReligion();
+          loadMyPdfs();
+        } else {
+          showEarnAlert(claimErrorText(data.reason));
+          loadReligion();
+        }
+      })
+      .catch(function () {});
+  }
   function renderPdfs() {
     var sec = $('pdfSection');
     if (!sec) return;
     if (!pdfs.length) { sec.hidden = true; $('pdfRow').innerHTML = ''; return; }
     sec.hidden = false;
     var html = '';
+    var seen = {};
+    PDF_CATEGORY_ORDER.forEach(function (cat) {
+      var group = pdfs.filter(function (p) { return (p.category || 'কেনাকাটা') === cat; });
+      if (!group.length) return;
+      html += '<h3 class="pdf-cat">' + esc(cat) + '</h3>';
+      if (cat === 'ধর্মীয় বই') html += religionStatusHtml();
+      group.forEach(function (p) { seen[p.id] = true; html += pdfCardHtml(p); });
+    });
     pdfs.forEach(function (p) {
-      html += '<article class="pdf-card">' +
-        '<div class="pdf-title">' + esc(p.title) + '</div>' +
-        (p.description ? '<div class="pdf-desc">' + esc(p.description) + '</div>' : '') +
-        '<div class="pdf-price-row">' + pdfPriceLine(p) + '</div>';
-      if (p.free && p.file_url) {
-        html += '<a class="btn-primary pdf-btn" href="' + esc(p.file_url) + '" download>⬇️ ডাউনলোড করুন (বাংলা)</a>';
-        if (p.file_url_en) {
-          html += '<a class="btn-secondary pdf-btn" href="' + esc(p.file_url_en) + '" download>⬇️ Download (English)</a>';
-        }
-      } else if (p.free) {
-        html += '<span class="pdf-note">ফ্রি — শীঘ্রই আসছে</span>';
-      } else {
-        if (p.en) html += '<div class="pdf-note">বাংলা + English ভার্সন — দুটোই পাবেন</div>';
-        html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
-          '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
-        if (p.price_zero && earnBalance >= p.price_zero) {
-          html += '<button class="btn-secondary pdf-btn" type="button" data-redeem="' + esc(p.id) + '">⛓️ ZERO দিয়ে রিডিম করুন</button>';
-        }
-      }
-      html += '</article>';
+      if (!seen[p.id]) html += pdfCardHtml(p);
     });
     $('pdfRow').innerHTML = html;
     Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-stars]'), function (b) {
@@ -280,6 +372,9 @@
     });
     Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-redeem]'), function (b) {
       b.addEventListener('click', function () { redeemPdf(b.getAttribute('data-redeem')); });
+    });
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-religion-claim]'), function (b) {
+      b.addEventListener('click', function () { claimReligionPdf(b.getAttribute('data-religion-claim')); });
     });
   }
   // ---------- PDF library: "আমার PDF" (purchased PDFs, re-download) ----------
@@ -634,6 +729,8 @@
     if (reason === 'device_conflict') return 'এই মোবাইলে already একটা অ্যাকাউন্ট আছে — এই অ্যাকাউন্ট দিয়ে আয় করা যাবে না।';
     if (reason === 'locked') return 'স্পিন এখনো আনলক হয়নি — শর্তগুলো পূরণ করুন।';
     if (reason === 'not_top3') return 'আপনি গত সপ্তাহের সেরা ৩-এ নেই।';
+    if (reason === 'not_top_performer') return 'আপনি আজ/এই সপ্তাহে/এই মাসে টপ ৩-এ নেই — টাস্ক করে লিডারবোর্ডে উঠুন।';
+    if (reason === 'not_reward_pdf') return 'এই PDF-টি পুরস্কার হিসেবে দেওয়া হয় না।';
     if (reason === 'expired') return 'এই পুরস্কারের মেয়াদ শেষ।';
     if (reason === 'already_claimed') return 'এই পুরস্কারটি ইতিমধ্যে নেওয়া হয়েছে।';
     if (reason === 'not_winner') return 'আপনি এই মাসের বিজয়ী নন।';
