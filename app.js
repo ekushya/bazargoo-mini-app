@@ -345,6 +345,14 @@
   var earnMonthly = null; // monthly check-in progress from /tasks (v19)
   var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
   var earnDeviceConflict = false; // true when this device belongs to another account
+  // v22: visit tasks — ids the user opened THIS session (Claim stays
+  // disabled until the link was opened), and the done-state seen on
+  // the previous render (so a cooldown expiring clears the stale open).
+  var visitOpened = {};
+  var visitNotJoined = {}; // v22: channel visit claims refused as not_joined (show Join button)
+  var visitDonePrev = {};
+  var VISIT_PAGE_IDS = ['visit_page_play', 'visit_page_clipcraft', 'visit_page_crypto', 'visit_page_wowappbd', 'visit_page_noor', 'visit_page_usmp'];
+  var VISIT_CHAN_IDS = ['visit_chan_bazargoo', 'visit_chan_earnplaygame', 'visit_chan_cryptoguru', 'visit_chan_adsterratt'];
   function loadTasks() {
     var sec = $('earnSection');
     if (!sec) return;
@@ -618,6 +626,7 @@
   function claimErrorText(reason) {
     if (reason === 'already_done') return 'আজকের জন্য হয়ে গেছে।';
     if (reason === 'not_member') return 'চ্যানেলে জয়েন করা হয়নি — জয়েন করে আবার চেষ্টা করুন।';
+    if (reason === 'not_joined') return 'প্রথমে চ্যানেলে জয়েন করো — জয়েন করে আবার দাবি করুন।';
     if (reason === 'wrong_answers') return 'একটি উত্তর ভুল হয়েছে — আবার চেষ্টা করুন।';
     if (reason === 'daily_limit') return 'আজকের সীমা শেষ।';
     if (reason === 'no_click') return 'প্রথমে বিজ্ঞাপনটি দেখুন, তারপর দাবি করুন।';
@@ -769,6 +778,26 @@
         html += '<button class="btn-primary pdf-btn" type="button" data-claim="video_daily" data-video-claim disabled>ভিডিও শেষ হলে দাবি করুন</button>';
         html += '<div class="task-status">২৪ ঘণ্টায় ১ বার</div>';
       }
+    } else if (t.id.indexOf('visit_') === 0) {
+      // v22: daily visit task — "দেখুন" opens the Page/channel
+      // (openLink / openTelegramLink via openBrowserUrl), and Claim
+      // stays disabled until it was opened this session. The worker
+      // enforces the 24h cooldown; it cannot verify the user
+      // actually looked at the Page or the last post.
+      var isChan = t.id.indexOf('visit_chan_') === 0;
+      var opened = !!visitOpened[t.id];
+      html += '<button class="btn-secondary pdf-btn" type="button" data-visit-open="' + esc(t.id) + '">' + (opened ? '👁️ খোলা হয়েছে ✓' : '👁️ দেখুন') + '</button>';
+      html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + ((t.done || !opened) ? ' disabled' : '') + '>' + (t.done ? doneLabel : '✅ দাবি করুন') + '</button>';
+      if (isChan) html += '<div class="task-status">জয়েন যাচাই করা হবে ✓ • শেষ পোস্টটি উপরে দেখতে পাবে</div>';
+      if (isChan && visitNotJoined[t.id] && !t.done) {
+        html += '<div class="task-status">প্রথমে চ্যানেলে জয়েন করো</div>';
+        html += '<button class="btn-secondary pdf-btn" type="button" data-visit-join="' + esc(t.id) + '">✈️ চ্যানেলে জয়েন করুন</button>';
+      }
+      if (t.done) {
+        html += '<div class="task-status done">আজ হয়েছে ✓' + (t.available_in_ms ? ' — আবার <span data-cd-ms="' + t.available_in_ms + '">' + fmtCooldown(t.available_in_ms) + '</span> পর' : '') + '</div>';
+      } else if (!opened) {
+        html += '<div class="task-status">প্রথমে পেইজ/চ্যানেলটি খুলুন, তারপর দাবি করুন</div>';
+      }
     } else if (t.id.indexOf('join_') === 0) {
       var ch = { join_bazargoo: 'bazargoo287', join_earnplaygame: 'earnplaygame21', join_cryptoguru: 'cryptoguru_247', join_adsterratt: 'adsterratt' }[t.id];
       html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
@@ -806,11 +835,36 @@
     var groups = [
       { title: '🎁 দৈনিক', ids: ['quiz'] },
       { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt', 'react_daily'], community: true },
+      { title: '🌐 ভিজিট করুন', ids: VISIT_PAGE_IDS.concat(VISIT_CHAN_IDS), visit: true },
       { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'video_daily'] },
       { title: '🔗 রেফারেল', ids: ['referral'] },
     ];
     var html = '';
     groups.forEach(function (g) {
+      if (g.visit) {
+        // v22: visit section — two sub-groups (Pages, then channels)
+        // with a "আজ X/১০ সম্পন্ন" header. A cooldown expiring
+        // clears the stale "opened this session" state for that task.
+        var doneCount = 0;
+        g.ids.forEach(function (id) {
+          if (byId[id]) {
+            if (byId[id].done) doneCount++;
+            if (!byId[id].done && visitDonePrev[id]) { delete visitOpened[id]; delete visitNotJoined[id]; }
+            visitDonePrev[id] = !!byId[id].done;
+          }
+        });
+        var cards = '';
+        var hasPage = false, hasChan = false;
+        VISIT_PAGE_IDS.forEach(function (id) { if (byId[id]) { cards += taskCardHTML(byId[id]); hasPage = true; } });
+        var chanCards = '';
+        VISIT_CHAN_IDS.forEach(function (id) { if (byId[id]) { chanCards += taskCardHTML(byId[id]); hasChan = true; } });
+        if (cards || chanCards) {
+          html += '<div class="earn-group-title">🌐 ভিজিট করুন — আজ ' + bnNum(doneCount) + '/' + bnNum(g.ids.length) + ' সম্পন্ন</div>';
+          if (hasPage) html += '<div class="earn-group-title earn-sub">📘 ফেসবুক পেইজ</div>' + cards;
+          if (hasChan) html += '<div class="earn-group-title earn-sub">✈️ টেলিগ্রাম চ্যানেল</div>' + chanCards;
+        }
+        return;
+      }
       var cards = '';
       g.ids.forEach(function (id) { if (byId[id]) cards += taskCardHTML(byId[id]); });
       if (cards) {
@@ -832,6 +886,28 @@
     $('earnTaskRow').innerHTML = html;
     Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim]'), function (b) {
       b.addEventListener('click', function () { claimTask(b.getAttribute('data-claim')); });
+    });
+    // v22: visit tasks — "দেখুন" opens the Page/channel and unlocks
+    // Claim for this session; "জয়েন করুন" opens the channel so a
+    // non-member can join before claiming again.
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-visit-open]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-visit-open');
+        var t = byId[id];
+        if (!t || !t.url) return;
+        visitOpened[id] = true;
+        openBrowserUrl(t.url);
+        b.textContent = '👁️ খোলা হয়েছে ✓';
+        var card = b.closest ? b.closest('article') : null;
+        var claimBtn = card ? card.querySelector('[data-claim]') : null;
+        if (claimBtn && !earnDeviceConflict) { claimBtn.disabled = false; claimBtn.textContent = '✅ দাবি করুন'; }
+      });
+    });
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-visit-join]'), function (b) {
+      b.addEventListener('click', function () {
+        var t = byId[b.getAttribute('data-visit-join')];
+        if (t && t.url) openBrowserUrl(t.url);
+      });
     });
     // One mobile = one account: when this device belongs to another
     // account, earning claims are disabled here (the worker blocks them
@@ -882,8 +958,10 @@
       .then(function (data) {
         if (data.ok) {
           earnBalance = data.balance;
+          delete visitNotJoined[id];
           haptic('medium');
         } else {
+          if (data.reason === 'not_joined') visitNotJoined[id] = true;
           showEarnAlert(claimErrorText(data.reason));
         }
         loadTasks();
