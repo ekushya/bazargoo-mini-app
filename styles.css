@@ -872,3 +872,13 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
 .spin-result { margin-top: 8px; font-size: 15px; font-weight: 800; color: #1a7f37; text-align: center; }
 .lb-me { border-color: var(--accent); border-width: 2px; }
 .contest-select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--secondary-bg); color: var(--text); font-size: 14px; margin: 6px 0; }
+
+/* ---------- v21: in-app browser tab ---------- */
+.browser-bar { display: flex; gap: 8px; margin: 8px 0; }
+.browser-bar input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--secondary-bg); color: var(--text); font-size: 14px; font-family: inherit; }
+.browser-bar input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.browser-hint { font-size: 12px; color: var(--hint); margin: 4px 0 8px; }
+.browser-row { width: 100%; font-family: inherit; text-align: left; cursor: pointer; color: var(--text); }
+.browser-row-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; flex: 1; }
+.browser-row-text .hist-title, .browser-row-text .hist-date { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#browserClearBtn { margin-top: 8px; }
