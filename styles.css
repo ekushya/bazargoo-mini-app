@@ -757,5 +757,8 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
 .pdf-price.free { color: #1a7f37; }
 .pdf-btn { display: block; text-align: center; text-decoration: none; margin-top: 2px; }
 .pdf-note { font-size: 12px; color: var(--hint); }
+.quiz-q { margin: 8px 0; font-size: 13px; }
+.quiz-q p { margin: 4px 0; font-weight: 700; }
+.quiz-opt { display: block; margin: 3px 0; font-size: 13px; }
 #pdfZeroBody p { font-size: 14px; line-height: 1.5; margin-bottom: 8px; }
 #pdfZeroBody code { word-break: break-all; font-size: 12px; }
