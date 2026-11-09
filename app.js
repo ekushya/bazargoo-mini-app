@@ -38,6 +38,32 @@
  * separate cap from the Zerads task. SDK zone ID + script URL come
  * from Angela's Monetag dashboard (MONETAG_ZONE_ID / MONETAG_SDK_URL
  * below) — until set, the task shows "coming soon" and no ad runs.
+ * v26 (9 Nov 2026): Wallet (Deposit/Withdraw: Stars invoice, ZERO/GRAM
+ * manual tx-hash; ZERO no fee/no minimum; GRAM min 0.5, daily caps,
+ * solvency, manual approval above 2 GRAM — payouts manual by Angela),
+ * Promote sponsor tasks (payment first, admin approval, auto-stop at
+ * budget), join gates (all 4 channels for spin/prizes/withdraw), 4-spin
+ * redesign (2 Monetag + 2 AdsGram/day, ad-gated claims, check-in gate
+ * kept), PDF wallet-buy. Monetag zone ID + AdsGram block ID are EMPTY
+ * placeholders — dashboard values from Angela, never invented.
+ * v26 (9 Nov 2026): Wallet + Promote + Withdraw + 4-spin redesign.
+ * Wallet (Profile tab): per-currency balances (earned ZERO + wallet
+ * ZERO/GRAM/Stars), Deposit (Stars invoice / ZERO / GRAM manual
+ * tx-hash) + Withdraw (ZERO: no fee, no minimum; GRAM min 0.5, daily
+ * caps, solvency, manual approval above 2 GRAM; payouts are manual
+ * by Angela + txid log — NO private key anywhere). Deposit-to-buy is
+ * the user's free choice — direct payment always stays. ZERO
+ * dual-option (instant pay/payout OR wallet save) at every ZERO
+ * checkout/withdrawal. Join/react gates (all 4 channels verified)
+ * gate spin + leaderboard/contest prizes + withdraw; the Profile
+ * card shows the "প্রোফাইল সম্পূর্ণ করুন" checklist + an inactive
+ * Security row. Promote: create -> pay first (ZERO/GRAM) -> Angela
+ * approves -> live sponsor task (80 completions per 100 ZERO / $2,
+ * completer 1 ZERO / ~0.019 GRAM). 4 spins/day (2 Monetag + 2
+ * AdsGram), every prize claimed by watching ONE ad; check-in gate
+ * kept; +1 free spin wins raise the daily max to 6. AdsGram block
+ * ID (ADSGRAM_BLOCK_ID below) is empty until Angela's dashboard
+ * steps are done — spin/ads tasks show "coming soon" meanwhile.
  */
 (function () {
   'use strict';
@@ -251,6 +277,15 @@
   var MONETAG_ZONE_ID = '';
   var MONETAG_SDK_URL = '';
   var MONETAG_REQUEST_VAR = 'bazargoo_ad_task';
+  // v26: AdsGram Reward format (spin claims + future ad tasks).
+  // ⚠️ ANGELA — AdsGram ড্যাশবোর্ড থেকে Reward ব্লকের blockId এখানে
+  // বসাতে হবে (শুধু সংখ্যা)। যতক্ষণ খালি থাকবে, AdsGram স্পিন
+  // "শীঘ্রই আসছে" দেখাবে — কোনো অ্যাড চলবে না, কোনো ZERO দেওয়া
+  // হবে না। Dashboard ধাপ: AdsGram → Add Platform → Telegram Mini
+  // App → Reward ব্লক তৈরি → blockId কপি করুন → এখানে বসান।
+  // Monetag-এর মতো AdsGram-এর কোনো সার্ভার postback নেই — worker
+  // শুধু /spin-start-এর one-time nonce যাচাই করে।
+  var ADSGRAM_BLOCK_ID = '';
   var PDF_CATALOG_URL = 'payments/pdf_catalog.json';
   var pdfs = [];
   var pdfZeroId = null;
@@ -326,6 +361,9 @@
       }
       html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
         '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
+      // v26: buy with the wallet balance (deposit-to-buy, free choice).
+      if (p.price_zero) html += '<button class="btn-secondary pdf-btn" type="button" data-buy-wallet-zero="' + esc(p.id) + '">👛 Wallet ZERO (' + bnNum(p.price_zero) + ') দিয়ে কিনুন</button>';
+      if (p.price_stars) html += '<button class="btn-secondary pdf-btn" type="button" data-buy-wallet-stars="' + esc(p.id) + '">👛 Wallet Stars (' + bnNum(p.price_stars) + ') দিয়ে কিনুন</button>';
       if (p.price_zero && earnBalance >= p.price_zero) {
         html += '<button class="btn-secondary pdf-btn" type="button" data-redeem="' + esc(p.id) + '">⛓️ ZERO দিয়ে রিডিম করুন</button>';
       }
@@ -387,6 +425,12 @@
     });
     Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-zero]'), function (b) {
       b.addEventListener('click', function () { openPdfZeroSheet(b.getAttribute('data-buy-zero')); });
+    });
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-wallet-zero]'), function (b) {
+      b.addEventListener('click', function () { buyPdfWallet(b.getAttribute('data-buy-wallet-zero'), 'zero'); });
+    });
+    Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-buy-wallet-stars]'), function (b) {
+      b.addEventListener('click', function () { buyPdfWallet(b.getAttribute('data-buy-wallet-stars'), 'stars'); });
     });
     Array.prototype.forEach.call($('pdfRow').querySelectorAll('[data-redeem]'), function (b) {
       b.addEventListener('click', function () { redeemPdf(b.getAttribute('data-redeem')); });
@@ -458,6 +502,11 @@
   var earnMonthly = null; // monthly check-in progress from /tasks (v19)
   var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
   var earnDeviceConflict = false; // true when this device belongs to another account
+  var earnGates = null; // v26: joins/react/check-in gates from /tasks
+  var walletState = null; // v26: GET /wallet response
+  var walletLoaded = false;
+  var sponsorOpened = {}; // v26: sponsor tasks opened this session (claim unlock)
+  var sponsorNotJoined = {}; // v26: sponsor claim refused as not_joined
   // v22: visit tasks — ids the user opened THIS session (Claim stays
   // disabled until the link was opened), and the done-state seen on
   // the previous render (so a cooldown expiring clears the stale open).
@@ -486,11 +535,13 @@
         earnCommunity = data.community_progress || null;
         earnMonthly = data.monthly_progress || null;
         earnDeviceConflict = !!data.device_conflict;
+        earnGates = data.gates || null; // v26: joins/react/check-in gates
         earnFetchedAt = Date.now(); // countdowns tick from these values
         earnLoaded = true;
         renderTasks();
         renderProfile();
         renderWallet();
+        loadWallet(); // v26: per-currency wallet balances
         renderPdfs(); // redeem buttons depend on the balance
         startEarnTicker(); // v20: live countdowns, every 30s
       })
@@ -754,6 +805,40 @@
     if (reason === 'not_winner') return 'আপনি এই মাসের বিজয়ী নন।';
     if (reason === 'invalid_item') return 'এই PDF-টি বেছে নেওয়া যাবে না।';
     if (reason === 'insufficient_balance') return 'ZERO যথেষ্ট নয়।';
+    if (reason === 'not_claimable') return 'এই টাস্কটি এখানে দাবি করা যায় না — বিজ্ঞাপন দেখে নিন।';
+    if (reason === 'use_spin_start') return 'স্পিন এখন অ্যাড দেখে ঘোরাতে হয় — নিচের স্পিন কার্ড দেখুন।';
+    if (reason === 'spin_pending') return 'একটি স্পিন already ঘোরানো হয়েছে — বিজ্ঞাপনটি দেখে পুরস্কার নিন।';
+    if (reason === 'no_spins_left') return 'আজকের স্পিন শেষ — আগামীকাল আবার।';
+    if (reason === 'network_spins_used') return 'এই নেটওয়ার্কের আজকের স্পিন শেষ — অন্য নেটওয়ার্কে চেষ্টা করো।';
+    if (reason === 'spin_expired') return 'স্পিনের মেয়াদ শেষ — আবার ঘোরান।';
+    if (reason === 'no_pending_spin') return 'কোনো স্পিন অপেক্ষায় নেই — আবার ঘোরান।';
+    if (reason === 'unknown_nonce') return 'বিজ্ঞাপন যাচাই করা যায়নি — আবার চেষ্টা করো।';
+    if (reason === 'user_mismatch') return 'এই পুরস্কারটি আপনার নয়।';
+    if (reason === 'joins_required') return 'আগে ৪টি চ্যানেলে জয়েন করুন — প্রোফাইলে চেকলিস্ট দেখুন।';
+    if (reason === 'start_first') return 'প্রথমে স্পন্সর কাজটি খুলুন।';
+    if (reason === 'dwell_not_done') return 'একটু অপেক্ষা করুন — কাজটি দেখে তারপর দাবি করুন।';
+    if (reason === 'promo_not_live') return 'এই প্রমোশনটি আর লাইভ নেই।';
+    if (reason === 'gram_not_configured') return 'GRAM পেমেন্ট এখনো চালু হয়নি — অ্যাডমিন সেটআপ বাকি আছে।';
+    if (reason === 'rate_unavailable') return 'রেট পাওয়া যায়নি — একটু পরে আবার চেষ্টা করুন।';
+    if (reason === 'below_minimum') return 'পরিমাণ সর্বনিম্ন সীমার নিচে।';
+    if (reason === 'invalid_address') return 'ঠিকানাটি সঠিক নয় — আবার দেখে লিখুন।';
+    if (reason === 'daily_cap') return 'আজকের তোলার সীমা শেষ।';
+    if (reason === 'insufficient_float') return 'এই মুহূর্তে GRAM তোলা যাবে না — ফান্ড কম আছে।';
+    if (reason === 'stars_not_withdrawable') return 'Stars তোলা যায় না — শুধু জমা দিয়ে PDF কেনা যায়।';
+    if (reason === 'invalid_amount') return 'পরিমাণটি সঠিক নয়।';
+    if (reason === 'unknown_currency') return 'এই মুদ্রাটি সমর্থিত নয়।';
+    if (reason === 'budget_out_of_range') return 'বাজেট সীমার বাইরে — সর্বনিম্ন ১০০ ZERO / $২, সর্বোচ্চ ৬২৫ ZERO / $১০।';
+    if (reason === 'invalid_url') return 'লিংকটি সঠিক নয় — https:// দিয়ে শুরু করুন।';
+    if (reason === 'invalid_type') return 'প্রমোশনের ধরনটি সঠিক নয়।';
+    if (reason === 'no_txid') return 'txid দিতে হবে।';
+    if (reason === 'not_verified') return 'পেমেন্ট যাচাই হয়নি — txid ঠিক আছে কি না দেখুন।';
+    if (reason === 'already_confirmed') return 'এই txid দিয়ে আগেই কনফার্ম হয়েছে।';
+    if (reason === 'not_found') return 'এই লেনদেনটি খুঁজে পাওয়া যায়নি।';
+    if (reason === 'insufficient') return 'পাঠানো পরিমাণ যথেষ্ট নয়।';
+    if (reason === 'unconfirmed') return 'পেমেন্টটি এখনো কনফার্ম হয়নি — একটু পরে চেষ্টা করুন।';
+    if (reason === 'reward_only') return 'এই PDF-টি কেনা যায় না — এটি পুরস্কার হিসেবে দেওয়া হয়।';
+    if (reason === 'no_zero_price') return 'এই PDF-টির ZERO দাম এখনো ঠিক হয়নি।';
+    if (reason === 'no_stars_price') return 'এই PDF-টির Stars দাম এখনো ঠিক হয়নি।';
     return 'দাবি করা যায়নি — আবার চেষ্টা করুন।';
   }
   function showEarnAlert(msg) {
@@ -782,7 +867,31 @@
       '<div class="earn-stats">পরের লেভেলে ' + bnNum(p.xp || 0) + '/' + bnNum(p.xp_next || 50) + ' • ✅ ' + bnNum(p.tasks_completed || 0) + 'টি টাস্ক সম্পন্ন • 👥 ' + bnNum(p.referrals || 0) + ' জন রেফারেল</div>' +
       '<div class="earn-details">Telegram ID: ' + esc(String(tgUserId() || '')) + ' • জয়েন: ' + join + ' • রেফারেল থেকে আয়: ' + bnNum(fmtZero(p.referral_earnings || 0)) + ' ZERO</div>' +
       '<div class="earn-note">লেভেল শুধু মোট আয়ের হিসাব — এখনো কিছু আনলক করে না।</div>' +
+      gatesChecklistHTML() +
+      '<div class="earn-details">🔒 সিকিউরিটি — শীঘ্রই আসছে</div>' +
       '</div>';
+  }
+  // v26: "প্রোফাইল সম্পূর্ণ করুন" checklist — the 4 channel joins +
+  // react + today's check-in. Spin, leaderboard/contest prizes and
+  // withdraw all need the 4 joins; this card shows exactly what is
+  // left. Joins are verified by the bot (getChatMember), react is
+  // click-only and is never shown as "verified".
+  function gatesChecklistHTML() {
+    if (!earnGates) return '';
+    var g = earnGates;
+    var j = g.joins || {};
+    function row(done, label) {
+      return '<div class="hist-row"><div class="hist-title">' + (done ? '✅ ' : '⬜ ') + esc(label) + '</div>' +
+        '<div class="hist-amt ' + (done ? 'pos' : '') + '">' + (done ? 'হয়েছে ✓' : 'বাকি') + '</div></div>';
+    }
+    return '<div class="earn-group-title">📋 প্রোফাইল সম্পূর্ণ করুন — ' + bnNum(g.complete || 0) + '/' + bnNum(g.total || 6) + '</div>' +
+      row(!!j.bazargoo, '@bazargoo287 চ্যানেলে জয়েন') +
+      row(!!j.earnplaygame, '@earnplaygame21 চ্যানেলে জয়েন') +
+      row(!!j.cryptoguru, '@cryptoguru_247 চ্যানেলে জয়েন') +
+      row(!!j.adsterratt, '@adsterratt চ্যানেলে জয়েন') +
+      row(!!g.react_done, 'পিন করা পোস্টে রিঅ্যাক্ট') +
+      row(!!g.checkin_done, 'আজকের চেক-ইন') +
+      '<div class="earn-note">স্পিন, লিডারবোর্ড পুরস্কার ও উইথড্র-এর জন্য ৪টি চ্যানেলে জয়েন লাগবে।</div>';
   }
   // v20: level progress bar at the top of the Task menu (Pickaxe-style
   // header). Reuses profile.level/xp/xp_next — display only.
@@ -851,10 +960,13 @@
   }
   function taskCardHTML(t) {
     var doneLabel = (t.id.indexOf('join_') === 0) ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
+    // v26: sponsor tasks pay in ZERO or GRAM — show the right currency.
+    var cur = (t.reward_currency || 'ZERO');
     var html = '<article class="pdf-card">' +
       '<div class="pdf-title">' + esc(t.title) + '</div>' +
+      (t.group === 'sponsor' ? '<div class="pdf-desc">🏷️ স্পন্সর</div>' : '') +
       (t.desc ? '<div class="pdf-desc">' + esc(t.desc) + '</div>' : '') +
-      '<div class="pdf-price-row"><span class="pdf-price">+' + t.reward + ' ZERO</span></div>';
+      '<div class="pdf-price-row"><span class="pdf-price">+' + t.reward + ' ' + cur + '</span></div>';
     if (t.id === 'quiz' && !t.done && t.questions) {
       t.questions.forEach(function (q, qi) {
         html += '<div class="quiz-q"><p>' + esc(q.q) + '</p>';
@@ -935,6 +1047,21 @@
       } else if (!opened) {
         html += '<div class="task-status">প্রথমে পেইজ/চ্যানেলটি খুলুন, তারপর দাবি করুন</div>';
       }
+    } else if (t.id.indexOf('sponsor_') === 0) {
+      // v26: sponsor task (an approved promotion). "দেখুন" opens the
+      // target and stamps the 15s dwell start (/sponsor-start); Claim
+      // stays disabled until opened this session. Our own channels
+      // are verified by the bot (getChatMember); other follows are
+      // NOT verifiable — the timer only stops instant abuse, and the
+      // app says so honestly.
+      var sOpened = !!sponsorOpened[t.id];
+      html += '<button class="btn-secondary pdf-btn" type="button" data-sponsor-open="' + esc(t.id) + '">' + (sOpened ? '👁️ খোলা হয়েছে ✓' : '👁️ দেখুন') + '</button>';
+      html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + ((t.done || !sOpened) ? ' disabled' : '') + '>' + (t.done ? doneLabel : '✅ দাবি করুন') + '</button>';
+      html += '<div class="task-status">বাকি ' + bnNum(t.remaining || 0) + 'টি • বাইরের ফলো/সাবস্ক্রাইব যাচাই করা যায় না — ১৫ সেকেন্ড দেখার পর দাবি করুন</div>';
+      if (sponsorNotJoined[t.id] && !t.done) {
+        html += '<div class="task-status">প্রথমে চ্যানেলে জয়েন করো</div>';
+      }
+      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
     } else if (t.id.indexOf('join_') === 0) {
       var ch = { join_bazargoo: 'bazargoo287', join_earnplaygame: 'earnplaygame21', join_cryptoguru: 'cryptoguru_247', join_adsterratt: 'adsterratt' }[t.id];
       html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
@@ -969,14 +1096,21 @@
     earnTasks.forEach(function (t) { byId[t.id] = t; });
     // v20 groups: check-in lives in the Daily Reward card; react_daily
     // moved into Community (joins + react = the community tasks).
+    // v26: live sponsor tasks (approved promotions) get their own
+    // group; the Promote button opens the create-promotion sheet.
+    var sponsorIds = [];
+    earnTasks.forEach(function (t) { if (t.group === 'sponsor') sponsorIds.push(t.id); });
     var groups = [
       { title: '🎁 দৈনিক', ids: ['quiz'] },
       { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt', 'react_daily'], community: true },
       { title: '🌐 ভিজিট করুন', ids: VISIT_PAGE_IDS.concat(VISIT_CHAN_IDS), visit: true },
       { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'ad_monetag', 'video_daily'] },
+      { title: '📢 স্পন্সর', ids: sponsorIds, sponsor: true },
       { title: '🔗 রেফারেল', ids: ['referral'] },
     ];
-    var html = '';
+    var html = '<div class="earn-group-title">📢 আপনার পেইজ/চ্যানেল প্রমোট করুন</div>' +
+      '<article class="pdf-card"><div class="pdf-desc">আপনার Facebook পেইজ, YouTube চ্যানেল বা যেকোনো লিংক এই অ্যাপের ইউজারদের কাছে পৌঁছে দিন — তারা কাজটি করলে পুরস্কার পাবে।</div>' +
+      '<button class="btn-primary pdf-btn" type="button" data-promote-open>📢 Promote করুন</button></article>';
     groups.forEach(function (g) {
       if (g.visit) {
         // v22: visit section — two sub-groups (Pages, then channels)
@@ -1029,6 +1163,31 @@
     Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-monetag-watch]'), function (b) {
       b.addEventListener('click', function () { watchMonetagAd(); });
     });
+    // v26: sponsor tasks — "দেখুন" stamps the 15s dwell start
+    // (/sponsor-start) and unlocks Claim for this session.
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-sponsor-open]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-sponsor-open');
+        var t = byId[id];
+        if (!t || !t.url) return;
+        var uid = tgUserId();
+        if (uid) {
+          fetch(WORKER_URL + '/sponsor-start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: uid, promo_id: id.replace('sponsor_', '') }),
+          }).catch(function () {});
+        }
+        sponsorOpened[id] = true;
+        openBrowserUrl(t.url);
+        b.textContent = '👁️ খোলা হয়েছে ✓';
+        var card = b.closest ? b.closest('article') : null;
+        var claimBtn = card ? card.querySelector('[data-claim]') : null;
+        if (claimBtn && !earnDeviceConflict) { claimBtn.disabled = false; claimBtn.textContent = '✅ দাবি করুন'; }
+      });
+    });
+    var promoteBtn = $('earnTaskRow').querySelector('[data-promote-open]');
+    if (promoteBtn) promoteBtn.addEventListener('click', function () { openPromoteSheet(); });
     // v22: visit tasks — "দেখুন" opens the Page/channel and unlocks
     // Claim for this session; "জয়েন করুন" opens the channel so a
     // non-member can join before claiming again.
@@ -1101,9 +1260,16 @@
         if (data.ok) {
           earnBalance = data.balance;
           delete visitNotJoined[id];
+          delete sponsorNotJoined[id];
           haptic('medium');
         } else {
-          if (data.reason === 'not_joined') visitNotJoined[id] = true;
+          if (data.reason === 'not_joined') { visitNotJoined[id] = true; sponsorNotJoined[id] = true; }
+          if (data.reason === 'dwell_not_done') {
+            var wait = Math.ceil((data.available_in_ms || 15000) / 1000);
+            showEarnAlert('আরও ' + bnNum(wait) + ' সেকেন্ড দেখে তারপর দাবি করুন।');
+            loadTasks();
+            return;
+          }
           showEarnAlert(claimErrorText(data.reason));
         }
         loadTasks();
@@ -1214,10 +1380,14 @@
     }
     claimTask('quiz', answers);
   }
-  // ---------- v19: Lucky Spin, monthly bonus, leaderboard, ZERO coupon, referral contest ----------
-  // Lucky Spin is completely FREE — 1 spin per Dhaka day, strict unlock
-  // (today's check-in + 3 different tasks today + streak 3+). The prize
-  // is rolled SERVER-side; the wheel only animates to the server's prize.
+  // ---------- v26: Lucky Spin — 4 spins/day, ad-gated (replaces v19) ----------
+  // 4 spins/day — 2 Monetag + 2 AdsGram. Every prize is claimed by
+  // watching ONE ad (Gram's model). The check-in gate stays; the
+  // streak and 3-task conditions are GONE. The prize is rolled
+  // SERVER-side in /spin-start; the slot is consumed ONLY when the
+  // ad-verified credit lands — a no-fill never burns a slot. '+1 free
+  // spin' wins raise the daily max to 6. The wheel only animates to
+  // the server's prize (or a random segment for a free-spin win).
   var SPIN_SEGMENTS = [1, 2, 3, 5, 10, 25];
   var spinRotation = 0;
   var spinning = false;
@@ -1227,12 +1397,9 @@
     (missing || []).forEach(function (m) {
       if (m === 'checkin_today') out.push('আজকের চেক-ইন বাকি');
       else if (m === 'device_conflict') out.push('এই মোবাইলে already একটা অ্যাকাউন্ট আছে');
-      else if (m.indexOf('tasks_today:') === 0) {
-        var p1 = m.split(':')[1].split('/');
-        out.push('আজ আরও ' + bnNum(3 - Number(p1[0])) + 'টি আলাদা টাস্ক করো (' + bnNum(p1[0]) + '/৩)');
-      } else if (m.indexOf('streak:') === 0) {
-        var p2 = m.split(':')[1].split('/');
-        out.push('স্ট্রিক ' + bnNum(p2[0]) + '/৩ দিন — আরও ' + bnNum(3 - Number(p2[0])) + ' দিন চেক-ইন করো');
+      else if (m.indexOf('joins:') === 0) {
+        var p = m.split(':')[1].split('/');
+        out.push('৪টি চ্যানেলে জয়েন বাকি (' + bnNum(p[0]) + '/৪) — প্রোফাইলে চেকলিস্ট দেখুন');
       } else out.push(m);
     });
     return out;
@@ -1262,86 +1429,204 @@
     if (!t) { box.hidden = true; box.innerHTML = ''; return; }
     box.hidden = false;
     var prizes = Array.isArray(t.prizes) ? t.prizes : [];
-    var tierLine = prizes.map(function (p) { return bnNum(p.prize) + ' ZERO — ' + bnNum(fmtZero(p.chance)) + '%'; }).join(' • ');
+    var tierLine = prizes.map(function (p) {
+      return p.prize === 'extra' ? '+১ ফ্রি স্পিন — ' + bnNum(fmtZero(p.chance)) + '%' : bnNum(p.prize) + ' ZERO — ' + bnNum(fmtZero(p.chance)) + '%';
+    }).join(' • ');
+    var slots = t.slots || { total: 4, monetag: 2, adsgram: 2, extra: 0, base_left: 4 };
     var btnHtml, statusHtml;
     if (t.done) {
-      btnHtml = '<button class="btn-secondary pdf-btn" type="button" disabled>আজ ঘোরানো হয়েছে ✓ — আগামীকাল আবার</button>';
-      statusHtml = '<div class="task-status done">আজকের স্পিন সম্পন্ন ✓</div>';
+      btnHtml = '<button class="btn-secondary pdf-btn" type="button" disabled>আজকের স্পিন শেষ ✓ — আগামীকাল আবার</button>';
+      statusHtml = '<div class="task-status done">আজ ' + bnNum(t.spins_today || 0) + ' বার ঘোরানো হয়েছে ✓</div>';
     } else if (t.locked) {
       btnHtml = '<button class="btn-secondary pdf-btn" type="button" disabled>🎡 স্পিন করুন</button>';
       statusHtml = '<div class="task-status">আনলক করতে বাকি:<br>• ' + spinMissingText(t.missing).map(esc).join('<br>• ') + '</div>';
     } else {
-      btnHtml = '<button class="btn-primary pdf-btn" type="button" data-spin>🎡 স্পিন করুন — সম্পূর্ণ ফ্রি!</button>';
-      statusHtml = '<div class="task-status">আজ ১ বার ঘোরানো যাবে — পুরস্কার সার্ভারেই ঠিক হয়।</div>';
+      btnHtml =
+        '<button class="btn-primary pdf-btn" type="button" data-spin="monetag"' + (slots.monetag <= 0 && slots.extra <= 0 ? ' disabled' : '') + '>🎡 Monetag দিয়ে ঘোরান' + (slots.monetag > 0 ? ' — ' + bnNum(slots.monetag) + ' বার বাকি' : '') + '</button>' +
+        '<button class="btn-primary pdf-btn" type="button" data-spin="adsgram"' + (slots.adsgram <= 0 && slots.extra <= 0 ? ' disabled' : '') + '>🎡 AdsGram দিয়ে ঘোরান' + (slots.adsgram > 0 ? ' — ' + bnNum(slots.adsgram) + ' বার বাকি' : '') + '</button>';
+      statusHtml = '<div class="task-status">দিনে ৪ বার (২ Monetag + ২ AdsGram) — প্রতিটা পুরস্কার পেতে ১টি অ্যাড দেখুন। পুরস্কার সার্ভারেই ঠিক হয়।</div>';
     }
     var labels = '';
     SPIN_SEGMENTS.forEach(function (p, i) {
       labels += '<div class="spin-label" style="transform: rotate(' + (i * 60 + 30) + 'deg)"><span>' + bnNum(p) + '</span></div>';
     });
     var resultHtml = (t.done && lastSpinPrize !== null)
-      ? '<div class="spin-result">🎉 আজ জিতেছেন ' + bnNum(fmtZero(lastSpinPrize)) + ' ZERO</div>'
+      ? '<div class="spin-result">' + (lastSpinPrize === 'extra' ? '🎉 +১ ফ্রি স্পিন পেয়েছেন!' : '🎉 আজ জিতেছেন ' + bnNum(fmtZero(lastSpinPrize)) + ' ZERO') + '</div>'
       : '<div class="spin-result" id="spinResult" hidden></div>';
     box.innerHTML =
       '<article class="pdf-card"><div class="pdf-title">🎡 Lucky Spin</div>' +
-      '<div class="pdf-desc">সম্পূর্ণ ফ্রি — ১ দিনে ১ বার। শর্ত: আজকের চেক-ইন + আজ ৩টি আলাদা টাস্ক + টানা ৩ দিনের স্ট্রিক।</div>' +
+      '<div class="pdf-desc">সম্পূর্ণ ফ্রি — দিনে ৪ বার (২ Monetag + ২ AdsGram)। শর্ত: আজকের চেক-ইন + ৪ চ্যানেলে জয়েন। প্রতিটা পুরস্কার পেতে ১টি অ্যাড দেখুন।</div>' +
       '<div class="spin-wrap"><div class="spin-pointer">▼</div><div class="spin-wheel" id="spinWheel">' + labels + '<div class="spin-hub">🎡</div></div></div>' +
       btnHtml + statusHtml +
       '<div class="task-status">পুরস্কার: ' + esc(tierLine) + '</div>' +
       resultHtml + '</article>';
-    var btn = box.querySelector('[data-spin]');
-    if (btn) btn.addEventListener('click', doSpin);
+    Array.prototype.forEach.call(box.querySelectorAll('[data-spin]'), function (btn) {
+      btn.addEventListener('click', function () { doSpin(btn.getAttribute('data-spin')); });
+    });
   }
-  function doSpin() {
-    var uid = tgUserId();
-    if (!uid || spinning) return;
-    var btn = document.querySelector('[data-spin]');
+  function animateSpinWheel(prize, done) {
     var wheel = $('spinWheel');
     var resEl = $('spinResult');
-    if (btn) btn.disabled = true;
+    // 'extra' (free spin) has no wheel segment — land anywhere.
+    var idx = (prize === 'extra') ? Math.floor(Math.random() * SPIN_SEGMENTS.length) : SPIN_SEGMENTS.indexOf(Number(prize));
+    if (idx === -1) idx = 0;
+    var center = idx * 60 + 30;
+    var cur = ((spinRotation % 360) + 360) % 360;
+    var delta = (360 - center - cur + 360) % 360;
+    var jitter = Math.floor(Math.random() * 37) - 18; // stay inside the segment
+    spinRotation += 360 * 5 + delta + jitter;
+    if (wheel) {
+      wheel.style.transition = 'transform 4.2s cubic-bezier(0.12, 0.8, 0.08, 1)';
+      wheel.style.transform = 'rotate(' + spinRotation + 'deg)';
+    }
+    setTimeout(function () {
+      spinning = false;
+      lastSpinPrize = prize;
+      haptic('medium');
+      if (resEl) {
+        resEl.hidden = false;
+        resEl.textContent = (prize === 'extra')
+          ? '🎉 অভিনন্দন! +১ ফ্রি স্পিন পেয়েছেন — আবার ঘোরান!'
+          : '🎉 অভিনন্দন! আপনি জিতেছেন ' + bnNum(fmtZero(prize)) + ' ZERO';
+      }
+      loadTasks();
+      if (done) done();
+    }, 4400);
+  }
+  function doSpin(network) {
+    var uid = tgUserId();
+    if (!uid || spinning) return;
     spinning = true;
     var user = telegramUser();
-    var body = { user_id: uid, task: 'spin_daily' };
+    var body = { user_id: uid, network: network };
     if (user && user.first_name) body.name = user.first_name;
     var dev = deviceId();
     if (dev) body.device_id = dev;
-    fetch(WORKER_URL + '/claim', {
+    fetch(WORKER_URL + '/spin-start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
       .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.ok) {
+      .then(function (start) {
+        if (!start.ok) {
           spinning = false;
-          showEarnAlert(claimErrorText(data.reason));
+          showEarnAlert(claimErrorText(start.reason));
           loadTasks();
           return;
         }
-        var prize = Number(data.prize);
-        var idx = SPIN_SEGMENTS.indexOf(prize);
-        if (idx === -1) idx = 0;
-        var center = idx * 60 + 30;
-        var cur = ((spinRotation % 360) + 360) % 360;
-        var delta = (360 - center - cur + 360) % 360;
-        var jitter = Math.floor(Math.random() * 37) - 18; // stay inside the segment
-        spinRotation += 360 * 5 + delta + jitter;
-        if (wheel) {
-          wheel.style.transition = 'transform 4.2s cubic-bezier(0.12, 0.8, 0.08, 1)';
-          wheel.style.transform = 'rotate(' + spinRotation + 'deg)';
-        }
-        setTimeout(function () {
-          spinning = false;
-          lastSpinPrize = prize;
-          earnBalance = data.balance;
-          haptic('medium');
-          if (resEl) {
-            resEl.hidden = false;
-            resEl.textContent = '🎉 অভিনন্দন! আপনি জিতেছেন ' + bnNum(fmtZero(prize)) + ' ZERO';
-          }
-          loadTasks();
-        }, 4400);
+        // The prize is already rolled server-side; now show ONE ad to
+        // claim it. A no-fill never burns the slot — the worker only
+        // consumes it when the verified view lands.
+        if (network === 'monetag') return spinWatchMonetag(start, uid, user);
+        return spinWatchAdsgram(start, uid, user);
       })
-      .catch(function () { spinning = false; if (btn) btn.disabled = false; });
+      .catch(function () { spinning = false; });
+  }
+  function spinWatchMonetag(start, uid, user) {
+    if (!MONETAG_ZONE_ID || !MONETAG_SDK_URL) {
+      spinning = false;
+      showEarnAlert('Monetag বিজ্ঞাপন এখনো চালু হয়নি — ড্যাশবোর্ড সেটআপ বাকি আছে। স্পিন নষ্ট হয়নি।');
+      return;
+    }
+    loadMonetagSdk().then(function (ready) {
+      if (!ready) {
+        spinning = false;
+        showEarnAlert('বিজ্ঞাপন লোড হয়নি — একটু পরে আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।');
+        return;
+      }
+      var showFn = monetagShowFn();
+      showFn({ type: 'end', ymid: start.ymid, requestVar: MONETAG_REQUEST_VAR })
+        .then(function (result) {
+          if (result && result.reward_event_type === 'valued') {
+            var body = { user_id: uid, ymid: start.ymid, reward_event_type: 'valued', event_type: result.event_type || 'impression', device_id: deviceId() || undefined };
+            if (user && user.first_name) body.name = user.first_name;
+            return fetch(WORKER_URL + '/monetag-postback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) { earnBalance = data.balance; animateSpinWheel(data.prize); }
+                else if (data.reason === 'already_credited') { spinning = false; showEarnAlert('এই বিজ্ঞাপনের পুরস্কার already দেওয়া হয়েছে ✓'); loadTasks(); }
+                else { spinning = false; showEarnAlert(claimErrorText(data.reason) || 'পুরস্কার দেওয়া যায়নি।'); loadTasks(); }
+              })
+              .catch(function () { spinning = false; loadTasks(); });
+          }
+          spinning = false;
+          showEarnAlert('এই বিজ্ঞাপন থেকে পুরস্কার হয়নি — আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।');
+          loadTasks();
+        })
+        .catch(function (err) {
+          spinning = false;
+          var msg = (err && err.message) || '';
+          showEarnAlert(msg === 'Empty feed' ? 'এখন কোনো বিজ্ঞাপন নেই — একটু পরে আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।' : 'বিজ্ঞাপন দেখানো যায়নি — আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।');
+          loadTasks();
+        });
+    });
+  }
+  function spinWatchAdsgram(start, uid, user) {
+    if (!ADSGRAM_BLOCK_ID) {
+      spinning = false;
+      showEarnAlert('AdsGram বিজ্ঞাপন এখনো চালু হয়নি — ড্যাশবোর্ড সেটআপ বাকি আছে। স্পিন নষ্ট হয়নি।');
+      return;
+    }
+    loadAdsgramSdk().then(function (ready) {
+      if (!ready) {
+        spinning = false;
+        showEarnAlert('বিজ্ঞাপন লোড হয়নি — একটু পরে আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।');
+        return;
+      }
+      var ctrl = adsgramController;
+      ctrl.show().then(function () {
+        // The Reward promise resolves only when the ad is watched to
+        // the end. The worker credits the spin on the one-time nonce
+        // from /spin-start — never on a client claim alone.
+        var body = { user_id: uid, nonce: start.nonce };
+        if (user && user.first_name) body.name = user.first_name;
+        return fetch(WORKER_URL + '/adsgram-confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) { earnBalance = data.balance; animateSpinWheel(data.prize); }
+            else { spinning = false; showEarnAlert(claimErrorText(data.reason) || 'পুরস্কার দেওয়া যায়নি।'); loadTasks(); }
+          })
+          .catch(function () { spinning = false; loadTasks(); });
+      }).catch(function () {
+        spinning = false;
+        showEarnAlert('বিজ্ঞাপন শেষ না হলে পুরস্কার হয় না — আবার চেষ্টা করো। স্পিন নষ্ট হয়নি।');
+        loadTasks();
+      });
+    });
+  }
+  // ---------- v26: AdsGram Reward SDK ----------
+  // Docs: docs.adsgram.ai — window.Adsgram.init({ blockId }) returns a
+  // controller; .show() resolves only when the Reward ad is watched to
+  // the end. There is NO signed server callback (unlike Monetag), so
+  // the worker only trusts the one-time nonce from /spin-start.
+  var adsgramSdkLoading = null;
+  var adsgramController = null;
+  function loadAdsgramSdk() {
+    if (!ADSGRAM_BLOCK_ID) return Promise.resolve(false);
+    if (adsgramController) return Promise.resolve(true);
+    if (adsgramSdkLoading) return adsgramSdkLoading;
+    adsgramSdkLoading = new Promise(function (resolve) {
+      var s = document.createElement('script');
+      s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+      s.onload = function () {
+        try {
+          adsgramController = (window.Adsgram && window.Adsgram.init) ? window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID }) : null;
+          resolve(!!adsgramController);
+        } catch (e) { adsgramSdkLoading = null; resolve(false); }
+      };
+      s.onerror = function () { adsgramSdkLoading = null; resolve(false); };
+      document.head.appendChild(s);
+    });
+    return adsgramSdkLoading;
   }
   function renderLeaderboard() {
     var box = $('leaderboardBox');
@@ -1654,29 +1939,274 @@
     renderWallet();
     renderCoupons();
   }
+  // ---------- v26: Wallet (balances, deposit, withdraw) ----------
+  // GET /wallet — per-currency balances. Deposit: Stars via a bot
+  // invoice (/start deposit_<stars>), ZERO/GRAM by manual tx-hash
+  // verified by the worker. Withdraw: ZERO has no fee and no minimum;
+  // GRAM min 0.5, daily caps, solvency, manual approval above 2 GRAM.
+  // Payouts are MANUAL by Angela + txid log — the worker never holds
+  // a private key. Deposit-to-buy is the user's free choice: direct
+  // payment always stays available at every checkout.
+  function loadWallet() {
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) return;
+    fetch(WORKER_URL + '/wallet?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) { walletState = data; walletLoaded = true; renderWallet(); })
+      .catch(function () {});
+  }
+  function walletPost(path, body) {
+    return fetch(WORKER_URL + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json(); });
+  }
   function renderWallet() {
     var el = $('walletCard');
     if (!el) return;
     if (!earnProfile) { el.innerHTML = ''; return; }
     var sec = $('profileSection');
     if (sec) sec.hidden = false;
+    var w = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
+    var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
     el.innerHTML =
       '<div class="earn-profile-top">' +
       '<div class="earn-avatar">👛</div>' +
       '<div><div class="earn-name">ZERO ওয়ালেট</div>' +
-      '<div class="earn-level">ব্যালেন্স — শুধু অ্যাপের ভেতরের হিসাব</div></div>' +
+      '<div class="earn-level">আয়: ' + bnNum(fmtZero(earned)) + ' ZERO • Wallet: ' + bnNum(fmtZero(w.zero)) + ' ZERO • ' + bnNum(fmtZero(w.gram)) + ' GRAM • ' + bnNum(fmtZero(w.stars)) + ' Stars</div></div>' +
       '<div class="earn-balance-big">' + bnNum(fmtZero(earnBalance)) + ' ZERO</div>' +
       '</div>' +
       '<div class="wallet-actions">' +
-      '<button class="btn-secondary" type="button" disabled>⬆️ উইথড্র — শীঘ্রই আসছে</button>' +
-      '<button class="btn-secondary" type="button" disabled>⬇️ ডিপোজিট — শীঘ্রই আসছে</button>' +
+      '<button class="btn-primary" type="button" data-wallet-open>⬆️ উইথড্র / ⬇️ ডিপোজিট</button>' +
       '<button class="btn-primary" type="button" data-wallet-shop>🛍️ দোকান দেখুন</button>' +
       '<button class="btn-primary" type="button" data-wallet-pdf>📚 PDF কিনুন</button>' +
-      '</div>';
+      '</div>' +
+      '<div class="earn-note">Wallet-এ জমা দিয়ে কিনতে পারেন, আবার যেকোনো সময় তুলতেও পারেন — জমা করা বাধ্যতামূলক নয়, সরাসরি পেমেন্ট সবসময় আছে। ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই। GRAM তোলা ম্যানুয়াল — অ্যাডমিন পাঠিয়ে txid জানিয়ে দেন।</div>';
+    var openBtn = el.querySelector('[data-wallet-open]');
+    if (openBtn) openBtn.onclick = function () { openWalletSheet(); };
     var shopBtn = el.querySelector('[data-wallet-shop]');
     if (shopBtn) shopBtn.onclick = function () { setActiveNav('shop'); scrollToEl($('chips')); };
     var pdfBtn = el.querySelector('[data-wallet-pdf]');
     if (pdfBtn) pdfBtn.onclick = function () { setActiveNav('mypdf'); scrollToEl($('myPdfSection')); };
+  }
+  function walletSheetHtml() {
+    var w = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
+    var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
+    var gramNote = (walletState && walletState.gram_configured)
+      ? ''
+      : '<div class="pdf-note">GRAM পেমেন্ট/তোলা এখনো চালু হয়নি — অ্যাডমিন সেটআপ বাকি আছে।</div>';
+    return '<p><strong>আয়:</strong> ' + bnNum(fmtZero(earned)) + ' ZERO &nbsp;•&nbsp; <strong>Wallet:</strong> ' +
+      bnNum(fmtZero(w.zero)) + ' ZERO • ' + bnNum(fmtZero(w.gram)) + ' GRAM • ' + bnNum(fmtZero(w.stars)) + ' Stars</p>' +
+      '<h3>⬇️ ডিপোজিট</h3>' +
+      '<div class="form-row"><label>মুদ্রা <select id="depCurrency"><option value="stars">⭐ Stars</option><option value="zero">⛓️ ZERO</option><option value="gram">💎 GRAM</option></select></label>' +
+      '<label>পরিমাণ <input id="depAmount" type="number" min="1" step="any" placeholder="১০"></label></div>' +
+      '<button class="btn-primary btn-block" type="button" id="depStartBtn">ডিপোজিট শুরু করুন</button>' +
+      '<div id="depPayBox"></div>' +
+      '<h3>⬆️ উইথড্র</h3>' +
+      '<div class="form-row"><label>মুদ্রা <select id="wdCurrency"><option value="zero">⛓️ ZERO</option><option value="gram">💎 GRAM</option></select></label>' +
+      '<label>পরিমাণ <input id="wdAmount" type="number" min="0" step="any" placeholder="১"></label></div>' +
+      '<label>আপনার ঠিকানা <input id="wdAddress" type="text" placeholder="ZERO হলে t1… / GRAM হলে EQ…/UQ…"></label>' +
+      '<div class="form-row"><label>ধরন <select id="wdMode"><option value="instant">⚡ এখনই তুলুন</option><option value="save">💾 Wallet-এ জমা রাখুন</option></select></label></div>' +
+      '<button class="btn-primary btn-block" type="button" id="wdBtn">তোলার অনুরোধ পাঠান</button>' +
+      '<div id="wdMsg"></div>' +
+      '<div class="pdf-note">ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই — ১ ZERO-ও তোলা যায়, যেকোনো সময়। দিনে সর্বোচ্চ ১,০০০ ZERO। ৫০০ ZERO-র বেশি হলে অ্যাডমিনের অনুমোদন লাগবে। GRAM: সর্বনিম্ন ০.৫, দিনে সর্বোচ্চ ৫ (ফান্ডের ২০%-এর বেশি নয়), ২ GRAM-এর বেশি হলে অনুমোদন লাগবে। Stars তোলা যায় না।</div>' +
+      '<h3>📍 আমার ঠিকানা সংরক্ষণ</h3>' +
+      '<div class="form-row"><label>মুদ্রা <select id="addrCurrency"><option value="zero">⛓️ ZERO</option><option value="gram">💎 GRAM</option></select></label>' +
+      '<label>ঠিকানা <input id="addrValue" type="text" placeholder="t1… / EQ…"></label></div>' +
+      '<button class="btn-secondary btn-block" type="button" id="addrSaveBtn">ঠিকানা সংরক্ষণ করুন</button>' +
+      '<div id="addrMsg"></div>' +
+      '<h3>⛓️ ZERO ওয়ালেট খোলার গাইড</h3>' +
+      '<div class="pdf-note">১. <b>zerochain.info/wallet</b>-এ যান।<br>' +
+      '২. নতুন ওয়ালেট খুলুন — Wallet ID ও Password পাবেন। <b>দুটোই নিরাপদে লিখে রাখুন — সাইটটি ভুলে গেলে ফেরত দিতে পারে না।</b><br>' +
+      '৩. ওয়ালেটে আপনার <b>t1…</b> ঠিকানাটি দেখাবে — সেটি কপি করুন।<br>' +
+      '৪. উপরে ঠিকানাটি বসিয়ে সংরক্ষণ করুন, অথবা তোলার সময় লিখুন।<br>' +
+      '⚠️ Wallet ID, Password বা Private Key <b>কাউকে দেবেন না</b> — অ্যাডমিনও কখনো চাইবে না।</div>' +
+      gramNote;
+  }
+  function openWalletSheet() {
+    var body = $('walletBody');
+    if (!body) return;
+    body.innerHTML = walletSheetHtml();
+    showSheet('walletSheet', 'wallet');
+    var depBtn = $('depStartBtn');
+    if (depBtn) depBtn.addEventListener('click', function () {
+      var uid = tgUserId();
+      if (!uid) return;
+      var cur = $('depCurrency').value;
+      var amt = parseFloat($('depAmount').value);
+      if (!amt || amt <= 0) { showEarnAlert('সঠিক পরিমাণ লিখুন।'); return; }
+      walletPost('/deposit-start', { user_id: uid, currency: cur, amount: amt }).then(function (res) {
+        var box = $('depPayBox');
+        if (!box) return;
+        if (!res.ok) { box.innerHTML = '<div class="form-error">' + esc(claimErrorText(res.reason)) + '</div>'; return; }
+        if (cur === 'stars') {
+          box.innerHTML = '<div class="pdf-note">বটে গিয়ে ' + bnNum(res.amount) + ' Stars-এর ইনভয়েস পাবেন — পেমেন্ট করলেই Wallet-এ জমা হবে।</div>';
+          openBotLink('https://t.me/' + BOT_USERNAME + '?start=deposit_' + res.amount);
+          return;
+        }
+        var unit = cur === 'zero' ? 'ZERO' : 'GRAM';
+        var amount = cur === 'zero' ? res.amount : res.gram;
+        box.innerHTML =
+          '<div class="pdf-note"><strong>' + bnNum(fmtZero(amount)) + ' ' + unit + '</strong> পাঠান এই ঠিকানায়:<br><code>' + esc(res.address) + '</code></div>' +
+          '<label>লেনদেনের ID (txid / tx hash) <input id="depTxid" type="text" placeholder="txid লিখুন"></label>' +
+          '<button class="btn-primary btn-block" type="button" id="depConfirmBtn">কনফার্ম করুন</button>' +
+          '<div id="depMsg"></div>';
+        var cb = $('depConfirmBtn');
+        if (cb) cb.addEventListener('click', function () {
+          var txid = $('depTxid').value.trim();
+          if (!txid) { showEarnAlert('txid লিখুন।'); return; }
+          walletPost('/deposit-confirm', { user_id: uid, currency: cur, txid: txid, amount: amount }).then(function (r) {
+            var m = $('depMsg');
+            if (!m) return;
+            if (r.ok) {
+              m.innerHTML = '<div class="task-status done">✅ ' + bnNum(fmtZero(r.credited)) + ' ' + unit + ' Wallet-এ জমা হয়েছে!</div>';
+              loadWallet(); loadTasks();
+            } else {
+              m.innerHTML = '<div class="form-error">' + esc(claimErrorText(r.reason)) + '</div>';
+            }
+          });
+        });
+      });
+    });
+    var wdBtn = $('wdBtn');
+    if (wdBtn) wdBtn.addEventListener('click', function () {
+      var uid = tgUserId();
+      if (!uid) return;
+      var cur = $('wdCurrency').value;
+      var amt = parseFloat($('wdAmount').value);
+      var addr = $('wdAddress').value.trim();
+      var mode = $('wdMode').value;
+      if (!amt || amt <= 0) { showEarnAlert('সঠিক পরিমাণ লিখুন।'); return; }
+      walletPost('/withdraw', { user_id: uid, currency: cur, amount: amt, to_wallet: mode, address: addr, device_id: deviceId() || undefined }).then(function (res) {
+        var m = $('wdMsg');
+        if (!m) return;
+        if (!res.ok) { m.innerHTML = '<div class="form-error">' + esc(claimErrorText(res.reason)) + '</div>'; return; }
+        if (res.mode === 'save') {
+          m.innerHTML = '<div class="task-status done">✅ ' + bnNum(fmtZero(res.amount)) + ' ' + (cur === 'zero' ? 'ZERO' : 'GRAM') + ' Wallet-এ জমা রাখা হয়েছে।</div>';
+        } else if (res.status === 'pending_approval') {
+          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — অ্যাডমিনের অনুমোদনের অপেক্ষায়। অনুমোদন হলে অ্যাডমিন পাঠিয়ে txid জানিয়ে দেবেন।</div>';
+        } else {
+          m.innerHTML = '<div class="task-status">⏳ অনুরোধ পাঠানো হয়েছে (' + esc(res.payout_id || '') + ') — অ্যাডমিন শীঘ্রই পাঠিয়ে txid জানিয়ে দেবেন।</div>';
+        }
+        loadWallet(); loadTasks();
+      });
+    });
+    var addrBtn = $('addrSaveBtn');
+    if (addrBtn) addrBtn.addEventListener('click', function () {
+      var uid = tgUserId();
+      if (!uid) return;
+      var cur = $('addrCurrency').value;
+      var addr = $('addrValue').value.trim();
+      if (!addr) { showEarnAlert('ঠিকানা লিখুন।'); return; }
+      walletPost('/address', { user_id: uid, currency: cur, address: addr }).then(function (res) {
+        var m = $('addrMsg');
+        if (!m) return;
+        m.innerHTML = res.ok
+          ? '<div class="task-status done">✅ ঠিকানা সংরক্ষণ হয়েছে।</div>'
+          : '<div class="form-error">' + esc(claimErrorText(res.reason)) + '</div>';
+      });
+    });
+  }
+  // ---------- v26: Promote — create a sponsor task ----------
+  // Create -> payment FIRST (ZERO / GRAM manual tx-hash, or the wallet
+  // balance) -> Angela approves every promotion (bot message) -> the
+  // promotion goes live as a sponsor task -> auto-stops when the
+  // budget is spent. Pricing (calculated, plan §4.4): min 100 ZERO or
+  // $2.00 (≈1.91 GRAM) = 80 completions; completer gets 1 ZERO or
+  // ~0.019 GRAM; max 625 ZERO / $10 = 500 completions.
+  function openPromoteSheet() {
+    var body = $('promoteBody');
+    if (!body) return;
+    body.innerHTML =
+      '<p>আপনার পেইজ/চ্যানেল/লিংক এই অ্যাপের ইউজারদের কাছে পৌঁছে দিন। প্রতিটি কাজ শেষ করলে ইউজার পুরস্কার পাবে — <strong>১ ZERO</strong> (ZERO প্রমোশন) বা <strong>~০.০১৯ GRAM</strong> (GRAM প্রমোশন)।</p>' +
+      '<div class="pdf-note">সর্বনিম্ন বাজেট: <strong>১০০ ZERO</strong> অথবা <strong>$২</strong> (≈১.৯১ GRAM) = ৮০টি কাজ। সর্বোচ্চ: ৬২৫ ZERO / $১০ = ৫০০টি কাজ। পেমেন্ট আগে, তারপর অ্যাডমিন প্রতিটি প্রমোশন অনুমোদন করেন — অনুমোদন না হলে লাইভ হবে না। বাজেট শেষ হলে প্রমোশন নিজে থেমে যাবে।</div>' +
+      '<label>শিরোনাম <input id="promoTitle" type="text" maxlength="80" placeholder="যেমন: আমার ফেসবুক পেইজ"></label>' +
+      '<label>লিংক <input id="promoUrl" type="url" placeholder="https://..."></label>' +
+      '<div class="form-row"><label>ধরন <select id="promoType">' +
+      '<option value="facebook_page">Facebook Page</option><option value="facebook">Facebook (পোস্ট/প্রোফাইল)</option>' +
+      '<option value="telegram_channel">Telegram চ্যানেল</option><option value="post">পোস্ট</option>' +
+      '<option value="video">ভিডিও</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option>' +
+      '<option value="x">X (Twitter)</option><option value="instagram">Instagram</option><option value="referral">রেফারেল লিংক</option>' +
+      '</select></label>' +
+      '<label>মুদ্রা <select id="promoCurrency"><option value="zero">⛓️ ZERO</option><option value="gram">💎 GRAM</option></select></label></div>' +
+      '<label>বাজেট <input id="promoBudget" type="number" min="0" step="any" placeholder="১০০ ZERO / $২"></label>' +
+      '<label><input id="promoWallet" type="checkbox"> Wallet ব্যালেন্স থেকে পে করুন</label>' +
+      '<button class="btn-primary btn-block" type="button" id="promoSubmitBtn">পেমেন্টের ধাপে যান</button>' +
+      '<div id="promoPayBox"></div>';
+    showSheet('promoteSheet', 'promote');
+    var submitBtn = $('promoSubmitBtn');
+    if (submitBtn) submitBtn.addEventListener('click', function () {
+      var uid = tgUserId();
+      if (!uid) return;
+      var title = $('promoTitle').value.trim();
+      var url = $('promoUrl').value.trim();
+      var type = $('promoType').value;
+      var cur = $('promoCurrency').value;
+      var budget = parseFloat($('promoBudget').value);
+      var fromWallet = $('promoWallet').checked;
+      if (!title || !url || !budget || budget <= 0) { showEarnAlert('শিরোনাম, লিংক ও সঠিক বাজেট লিখুন।'); return; }
+      walletPost('/promote-submit', { user_id: uid, title: title, url: url, type: type, currency: cur, budget: budget }).then(function (res) {
+        var box = $('promoPayBox');
+        if (!box) return;
+        if (!res.ok) { box.innerHTML = '<div class="form-error">' + esc(claimErrorText(res.reason)) + '</div>'; return; }
+        var unit = cur === 'zero' ? 'ZERO' : 'GRAM';
+        var amount = cur === 'zero' ? res.pay.amount : res.pay.amount;
+        var html = '<div class="pdf-note"><strong>' + bnNum(res.completions) + 'টি কাজ</strong> • প্রতিটিতে ' +
+          bnNum(fmtZero(res.reward_per_completion)) + ' ' + unit + ' পুরস্কার</div>';
+        if (fromWallet) {
+          html += '<div class="pdf-note">Wallet ব্যালেন্স থেকে <strong>' + bnNum(fmtZero(amount)) + ' ' + unit + '</strong> কাটা হবে।</div>' +
+            '<button class="btn-primary btn-block" type="button" id="promoConfirmBtn">Wallet দিয়ে পেমেন্ট করুন</button>';
+        } else {
+          html += '<div class="pdf-note"><strong>' + bnNum(fmtZero(amount)) + ' ' + unit + '</strong> পাঠান এই ঠিকানায়:<br><code>' + esc(res.pay.to) + '</code></div>' +
+            '<label>লেনদেনের ID (txid / tx hash) <input id="promoTxid" type="text" placeholder="txid লিখুন"></label>' +
+            '<button class="btn-primary btn-block" type="button" id="promoConfirmBtn">পেমেন্ট কনফার্ম করুন</button>';
+        }
+        html += '<div id="promoMsg"></div>';
+        box.innerHTML = html;
+        var cb = $('promoConfirmBtn');
+        if (cb) cb.addEventListener('click', function () {
+          var confirmBody = { user_id: uid, title: title, url: url, type: type, currency: cur, budget: budget };
+          if (fromWallet) {
+            confirmBody.from_wallet = true;
+          } else {
+            var txid = $('promoTxid').value.trim();
+            if (!txid) { showEarnAlert('txid লিখুন।'); return; }
+            confirmBody.txid = txid;
+          }
+          walletPost('/promote-confirm', confirmBody).then(function (r) {
+            var m = $('promoMsg');
+            if (!m) return;
+            if (r.ok) {
+              m.innerHTML = '<div class="task-status done">✅ পেমেন্ট পেয়েছি! প্রমোশনটি অ্যাডমিনের অনুমোদনের অপেক্ষায় (' + esc(r.promo_id || '') + ') — অনুমোদন হলে স্পন্সর টাস্ক হিসেবে লাইভ হবে।</div>';
+              loadTasks();
+            } else {
+              m.innerHTML = '<div class="form-error">' + esc(claimErrorText(r.reason)) + '</div>';
+            }
+          });
+        });
+      });
+    });
+  }
+  // v26: buy a PDF with the wallet balance (deposit-to-buy, the user's
+  // free choice — Stars/ZERO direct payment always stays available).
+  function buyPdfWallet(id, currency) {
+    var uid = tgUserId();
+    if (!uid) return;
+    walletPost('/buy-pdf-wallet', { user_id: uid, item_id: id, currency: currency || 'zero' }).then(function (data) {
+      if (data.ok) {
+        earnBalance = data.balance;
+        haptic('medium');
+        showEarnAlert('PDF পাঠানো হয়েছে ✓ — বটের চ্যাটে দেখুন।');
+        loadTasks();
+        loadWallet();
+        loadMyPdfs();
+      } else if (data.reason === 'insufficient_balance') {
+        showEarnAlert('Wallet-এ যথেষ্ট ব্যালেন্স নেই — প্রথমে ডিপোজিট করুন।');
+      } else {
+        showEarnAlert(claimErrorText(data.reason) || 'Wallet দিয়ে কেনা যায়নি।');
+      }
+    }).catch(function () {});
   }
   var HISTORY_TYPE_LABELS = {
     task: 'টাস্ক', commission: 'কমিশন', referral_bonus: 'রেফারেল বোনাস',
@@ -2070,7 +2600,7 @@
       if (cartCount() === 0) { mb.hide(); return; }
       mb.setText('অর্ডার করুন • ' + fmt(grandTotal()));
       mb.show();
-    } else if (openSheet === 'detail' || openSheet === 'confirm' || openSheet === 'orders' || openSheet === 'pdfZero') {
+    } else if (openSheet === 'detail' || openSheet === 'confirm' || openSheet === 'orders' || openSheet === 'pdfZero' || openSheet === 'wallet' || openSheet === 'promote') {
       mb.hide();
     } else if (cartCount() > 0) {
       mb.setText('কার্ট দেখুন • ' + fmt(cartTotal()));
@@ -2097,6 +2627,8 @@
     else if (openSheet === 'reviewConfirm') closeSheet('reviewConfirmSheet');
     else if (openSheet === 'orders') closeSheet('ordersSheet');
     else if (openSheet === 'pdfZero') closeSheet('pdfZeroSheet');
+    else if (openSheet === 'wallet') closeSheet('walletSheet');
+    else if (openSheet === 'promote') closeSheet('promoteSheet');
   }
 
   // ---------- data ----------
