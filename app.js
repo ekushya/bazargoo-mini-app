@@ -232,10 +232,14 @@
         (p.description ? '<div class="pdf-desc">' + esc(p.description) + '</div>' : '') +
         '<div class="pdf-price-row">' + pdfPriceLine(p) + '</div>';
       if (p.free && p.file_url) {
-        html += '<a class="btn-primary pdf-btn" href="' + esc(p.file_url) + '" download>⬇️ ডাউনলোড করুন</a>';
+        html += '<a class="btn-primary pdf-btn" href="' + esc(p.file_url) + '" download>⬇️ ডাউনলোড করুন (বাংলা)</a>';
+        if (p.file_url_en) {
+          html += '<a class="btn-secondary pdf-btn" href="' + esc(p.file_url_en) + '" download>⬇️ Download (English)</a>';
+        }
       } else if (p.free) {
         html += '<span class="pdf-note">ফ্রি — শীঘ্রই আসছে</span>';
       } else {
+        if (p.en) html += '<div class="pdf-note">বাংলা + English ভার্সন — দুটোই পাবেন</div>';
         html += '<button class="btn-primary pdf-btn" type="button" data-buy-stars="' + esc(p.id) + '">⭐ Stars দিয়ে কিনুন</button>' +
           '<button class="btn-secondary pdf-btn" type="button" data-buy-zero="' + esc(p.id) + '">⛓️ ZERO দিয়ে কিনুন</button>';
       }
