@@ -249,6 +249,54 @@
       b.addEventListener('click', function () { openPdfZeroSheet(b.getAttribute('data-buy-zero')); });
     });
   }
+  // ---------- PDF library: "আমার PDF" (purchased PDFs, re-download) ----------
+  // The app never sees a payment finish (it happens in the bot chat), so
+  // the library asks the worker which PDFs this Telegram user has bought
+  // (GET /my_pdfs). Re-download goes through the bot too: the worker
+  // re-sends the file only if a delivered sale exists for this user.
+  var myPdfs = [];
+  function tgUserId() {
+    var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    return u && u.id ? u.id : null;
+  }
+  function loadMyPdfs() {
+    var sec = $('myPdfSection');
+    if (!sec) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) {
+      // Outside Telegram the library cannot know who bought what.
+      sec.hidden = false;
+      $('myPdfRow').innerHTML = '';
+      $('myPdfNote').textContent = 'Telegram-এ অ্যাপ খুললে আপনার কেনা PDF এখানে দেখাবে।';
+      return;
+    }
+    fetch(WORKER_URL + '/my_pdfs?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) { myPdfs = Array.isArray(data.pdfs) ? data.pdfs : []; renderMyPdfs(); })
+      .catch(function () { sec.hidden = true; });
+  }
+  function renderMyPdfs() {
+    var sec = $('myPdfSection');
+    if (!sec) return;
+    if (!myPdfs.length) { sec.hidden = true; $('myPdfRow').innerHTML = ''; $('myPdfNote').textContent = ''; return; }
+    sec.hidden = false;
+    var html = '';
+    myPdfs.forEach(function (p) {
+      html += '<article class="pdf-card">' +
+        '<div class="pdf-title">' + esc(p.title) + '</div>' +
+        '<div class="pdf-note">কেনা হয়েছে ✓</div>' +
+        '<button class="btn-primary pdf-btn" type="button" data-redownload="' + esc(p.item_id) + '">⬇️ আবার ডাউনলোড করুন</button>' +
+        '</article>';
+    });
+    $('myPdfRow').innerHTML = html;
+    $('myPdfNote').textContent = '';
+    Array.prototype.forEach.call($('myPdfRow').querySelectorAll('[data-redownload]'), function (b) {
+      b.addEventListener('click', function () { redownloadPdf(b.getAttribute('data-redownload')); });
+    });
+  }
+  function redownloadPdf(id) {
+    openBotLink('https://t.me/' + BOT_USERNAME + '?start=redownload_' + encodeURIComponent(id));
+  }
   function openBotLink(url) {
     var inTg = !!(tg && tg.initData);
     if (inTg && tg.openTelegramLink) {
@@ -1626,4 +1674,5 @@
   loadProducts();
   loadReviews();
   loadPdfs();
+  loadMyPdfs();
 })();
