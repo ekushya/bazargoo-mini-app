@@ -376,7 +376,7 @@
       .catch(function () { sec.hidden = true; });
   }
   // ---------- bottom navigation (v18) ----------
-  // Fixed 5-tab bar: দোকান / টাস্ক / বন্ধু / আমার PDF / প্রোফাইল.
+  // Fixed 6-tab bar: দোকান / টাস্ক / বন্ধু / আমার PDF / প্রোফাইল / ব্রাউজার.
   // Tapping a tab smooth-scrolls to its section; IntersectionObserver
   // keeps the active tab in sync while scrolling manually. Safe in a
   // plain browser: the Earn/Friend/Profile tabs just scroll — loadTasks
@@ -388,6 +388,7 @@
     { id: 'friend', target: 'friendSection', section: 'friendSection', earn: true },
     { id: 'mypdf', target: 'myPdfSection', section: 'myPdfSection' },
     { id: 'profile', target: 'profileSection', section: 'profileSection', earn: true },
+    { id: 'browser', target: 'browserSection', section: 'browserSection' },
   ];
   function isVisibleEl(el) {
     if (!el || el.hidden) return false;
@@ -442,7 +443,7 @@
     // Keep the active tab in sync while the user scrolls manually.
     if (!('IntersectionObserver' in window)) return;
     var visible = {};
-    var order = ['profile', 'mypdf', 'friend', 'tasks', 'shop']; // priority when several intersect
+    var order = ['browser', 'profile', 'mypdf', 'friend', 'tasks', 'shop']; // priority when several intersect
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         var tabId = en.target.getAttribute('data-nav-section');
@@ -456,6 +457,135 @@
       var sec = $(t.section);
       if (sec) { sec.setAttribute('data-nav-section', t.id); io.observe(sec); }
     });
+  }
+  // ---------- in-app browser (v21) ----------
+  // A Mini App cannot embed other sites in an iframe (X-Frame-Options),
+  // so links open in Telegram's own in-app browser via tg.openLink —
+  // the user comes back with the back button. t.me links use
+  // openTelegramLink when available. Outside Telegram the fallback is
+  // window.open in a new tab. History is localStorage only, never sent.
+  var BROWSER_HISTORY_KEY = 'bazargoo_browser_history_v1';
+  var BROWSER_QUICK_LINKS = [
+    { icon: '🛍️', label: 'BazarGoo দোকান', url: 'https://bazargoo.com' },
+    { icon: '🇺🇸', label: 'USA 247 Trend Post', url: 'https://usa247trendpost.blogspot.com/' },
+    { icon: '💚', label: 'Unlocking Wellness', url: 'https://healthhackshub247.blogspot.com/' },
+    { icon: '💰', label: 'US Money Pulse', url: 'https://usmoneypulse.blogspot.com/' },
+    { icon: '📢', label: 'BazarGoo চ্যানেল', url: 'https://t.me/bazargoo287' },
+    { icon: '🎮', label: 'EarnPLayGame চ্যানেল', url: 'https://t.me/earnplaygame21' },
+  ];
+  function browserDomain(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; }
+  }
+  function loadBrowserHistory() {
+    try {
+      var raw = localStorage.getItem(BROWSER_HISTORY_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) { return []; }
+  }
+  function saveBrowserHistory(list) {
+    try { localStorage.setItem(BROWSER_HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function recordBrowserHistory(url) {
+    var list = loadBrowserHistory().filter(function (h) { return h.url !== url; });
+    list.unshift({ url: url, domain: browserDomain(url), at: Date.now() });
+    if (list.length > 8) list.length = 8;
+    saveBrowserHistory(list);
+    renderBrowserHistory();
+  }
+  function renderBrowserHistory() {
+    var listEl = $('browserHistoryList');
+    var emptyEl = $('browserHistoryEmpty');
+    var clearBtn = $('browserClearBtn');
+    if (!listEl) return;
+    var list = loadBrowserHistory();
+    if (emptyEl) emptyEl.hidden = list.length > 0;
+    if (clearBtn) clearBtn.hidden = list.length === 0;
+    listEl.innerHTML = list.map(function (h) {
+      return '<button type="button" class="hist-row browser-row" data-url="' + esc(h.url) + '">' +
+        '<span class="browser-row-text"><span class="hist-title">' + esc(h.domain) + '</span>' +
+        '<span class="hist-date">' + esc(h.url) + '</span></span>' +
+        '<span class="hist-amt">↗</span></button>';
+    }).join('');
+    Array.prototype.forEach.call(listEl.querySelectorAll('[data-url]'), function (b) {
+      b.addEventListener('click', function () { openBrowserUrl(b.getAttribute('data-url')); });
+    });
+  }
+  function renderBrowserQuickLinks() {
+    var row = $('browserQuickLinks');
+    if (!row) return;
+    row.innerHTML = BROWSER_QUICK_LINKS.map(function (l) {
+      return '<button type="button" class="hist-row browser-row" data-url="' + esc(l.url) + '">' +
+        '<span class="browser-row-text"><span class="hist-title">' + esc(l.icon) + ' ' + esc(l.label) + '</span>' +
+        '<span class="hist-date">' + esc(browserDomain(l.url)) + '</span></span>' +
+        '<span class="hist-amt">↗</span></button>';
+    }).join('');
+    Array.prototype.forEach.call(row.querySelectorAll('[data-url]'), function (b) {
+      b.addEventListener('click', function () { openBrowserUrl(b.getAttribute('data-url')); });
+    });
+  }
+  // Resolve what the user typed: a URL (add https:// when missing) or
+  // a search query (Google). Returns a safe http(s) URL or null.
+  function resolveBrowserInput(text) {
+    var raw = String(text || '').trim();
+    if (!raw) return null;
+    var lower = raw.toLowerCase();
+    if (lower.indexOf('javascript:') === 0 || lower.indexOf('data:') === 0 || lower.indexOf('vbscript:') === 0) return null;
+    if (/\s/.test(raw)) {
+      return 'https://www.google.com/search?q=' + encodeURIComponent(raw);
+    }
+    var url = raw;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try {
+      var u = new URL(url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+      if (u.hostname.indexOf('.') === -1) return 'https://www.google.com/search?q=' + encodeURIComponent(raw);
+      return u.href;
+    } catch (e) {
+      return 'https://www.google.com/search?q=' + encodeURIComponent(raw);
+    }
+  }
+  function openBrowserUrl(url) {
+    if (!url) return;
+    var inTg = !!(tg && tg.initData);
+    recordBrowserHistory(url);
+    if (inTg && /^https:\/\/t\.me\//i.test(url) && tg.openTelegramLink) {
+      try { tg.openTelegramLink(url); return; } catch (e) { /* fall through */ }
+    }
+    if (inTg && tg.openLink) {
+      try { tg.openLink(url); return; } catch (e) { /* fall through */ }
+    }
+    window.open(url, '_blank');
+  }
+  function browserGo() {
+    var input = $('browserInput');
+    var err = $('browserError');
+    if (!input) return;
+    var url = resolveBrowserInput(input.value);
+    if (!url) {
+      if (err) { err.textContent = 'সঠিক লিংক লিখুন (যেমন: bazargoo.com) অথবা কিছু সার্চ করুন।'; err.hidden = false; }
+      return;
+    }
+    if (err) err.hidden = true;
+    input.value = '';
+    openBrowserUrl(url);
+  }
+  function setupBrowser() {
+    var goBtn = $('browserGoBtn');
+    var input = $('browserInput');
+    if (!goBtn || !input) return;
+    goBtn.addEventListener('click', browserGo);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); browserGo(); }
+    });
+    input.addEventListener('input', function () { var err = $('browserError'); if (err) err.hidden = true; });
+    var clearBtn = $('browserClearBtn');
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      saveBrowserHistory([]);
+      renderBrowserHistory();
+    });
+    renderBrowserQuickLinks();
+    renderBrowserHistory();
   }
   function fmtCooldown(ms) {
     // Remaining cooldown in Bengali: "৫ ঘণ্টা ১০ মিনিট" / "৪৫ মিনিট".
@@ -2768,6 +2898,7 @@
   setupTelegram();
   wireEvents();
   setupBottomNav();
+  setupBrowser();
   loadProducts();
   loadReviews();
   loadPdfs();
