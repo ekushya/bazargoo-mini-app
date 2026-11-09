@@ -313,20 +313,36 @@
   // for PDFs. The worker verifies every claim server-side.
   var earnBalance = 0;
   var earnTasks = [];
+  var earnProfile = null;
+  var earnStreak = null;
   function loadTasks() {
     var sec = $('earnSection');
     if (!sec) return;
     var uid = tgUserId();
     if (!WORKER_URL || !uid) { sec.hidden = true; return; }
-    fetch(WORKER_URL + '/tasks?user_id=' + encodeURIComponent(uid))
+    var user = telegramUser();
+    var nameParam = user && user.first_name ? '&name=' + encodeURIComponent(user.first_name) : '';
+    fetch(WORKER_URL + '/tasks?user_id=' + encodeURIComponent(uid) + nameParam)
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (data) {
         earnBalance = data.balance || 0;
         earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
+        earnProfile = data.profile || null;
+        earnStreak = data.streak || null;
         renderTasks();
         renderPdfs(); // redeem buttons depend on the balance
       })
       .catch(function () { sec.hidden = true; });
+  }
+  function fmtCooldown(ms) {
+    // Remaining cooldown in Bengali: "৫ ঘণ্টা ১০ মিনিট" / "৪৫ মিনিট".
+    if (!ms || ms <= 0) return '';
+    var totalMin = Math.ceil(ms / 60000);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    if (h <= 0) return bnNum(m) + ' মিনিট';
+    if (m === 0) return bnNum(h) + ' ঘণ্টা';
+    return bnNum(h) + ' ঘণ্টা ' + bnNum(m) + ' মিনিট';
   }
   function claimErrorText(reason) {
     if (reason === 'already_done') return 'আজকের জন্য হয়ে গেছে।';
@@ -334,49 +350,122 @@
     if (reason === 'wrong_answers') return 'একটি উত্তর ভুল হয়েছে — আবার চেষ্টা করুন।';
     if (reason === 'daily_limit') return 'আজকের সীমা শেষ।';
     if (reason === 'no_click') return 'প্রথমে বিজ্ঞাপনটি দেখুন, তারপর দাবি করুন।';
+    if (reason === 'cooldown') return 'এখনো সময় হয়নি — আবার পরে চেষ্টা করুন।';
     return 'দাবি করা যায়নি — আবার চেষ্টা করুন।';
   }
   function showEarnAlert(msg) {
     if (tg && tg.showAlert) { try { tg.showAlert(msg); return; } catch (e) {} }
     alert(msg);
   }
+  function renderProfile() {
+    var el = $('earnProfile');
+    if (!el) return;
+    if (!earnProfile) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    var p = earnProfile;
+    var pct = Math.round((p.progress || 0) * 100);
+    el.innerHTML =
+      '<div class="earn-profile">' +
+      '<div class="earn-profile-top">' +
+      '<div class="earn-avatar">👤</div>' +
+      '<div><div class="earn-name">' + esc(p.name || 'ব্যবহারকারী') + '</div>' +
+      '<div class="earn-level">লেভেল ' + bnNum(p.level || 1) + ' • মোট আয় ' + bnNum(p.lifetime_earned || 0) + ' ZERO</div></div>' +
+      '<div class="earn-balance-big">' + bnNum(earnBalance) + ' ZERO</div>' +
+      '</div>' +
+      '<div class="earn-progress"><div class="earn-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="earn-stats">পরের লেভেলে ' + bnNum(p.xp || 0) + '/' + bnNum(p.xp_next || 50) + ' • ✅ ' + bnNum(p.tasks_completed || 0) + 'টি টাস্ক সম্পন্ন • 👥 ' + bnNum(p.referrals || 0) + ' জন রেফারেল</div>' +
+      '<div class="earn-note">লেভেল শুধু মোট আয়ের হিসাব — এখনো কিছু আনলক করে না।</div>' +
+      '</div>';
+  }
+  function renderStreak() {
+    var el = $('earnStreak');
+    if (!el) return;
+    if (!earnStreak || !earnStreak.days) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    var s = earnStreak;
+    var html = '<div class="streak-strip"><div class="streak-title">🔥 চেক-ইন স্ট্রিক: ' +
+      bnNum(s.current || 0) + ' দিন • আজ +' + bnNum(s.today_reward || 1) + ' ZERO</div><div class="streak-days">';
+    s.days.forEach(function (d) {
+      var cls = 'streak-day' + (d.done ? ' done' : '') + (!d.done && !s.claimed_today && d.day === (s.current % 7) + 1 ? ' next' : '');
+      html += '<div class="' + cls + '">' + (d.done ? '✓' : bnNum(d.day)) +
+        '<span>দিন ' + bnNum(d.day) + '</span><b>+' + bnNum(d.reward) + '</b></div>';
+    });
+    html += '</div></div>';
+    el.innerHTML = html;
+  }
+  function taskCardHTML(t) {
+    var doneLabel = (t.id.indexOf('join_') === 0) ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
+    var html = '<article class="pdf-card">' +
+      '<div class="pdf-title">' + esc(t.title) + '</div>' +
+      (t.desc ? '<div class="pdf-desc">' + esc(t.desc) + '</div>' : '') +
+      '<div class="pdf-price-row"><span class="pdf-price">+' + t.reward + ' ZERO</span></div>';
+    if (t.id === 'quiz' && !t.done && t.questions) {
+      t.questions.forEach(function (q, qi) {
+        html += '<div class="quiz-q"><p>' + esc(q.q) + '</p>';
+        q.options.forEach(function (opt, oi) {
+          html += '<label class="quiz-opt"><input type="radio" name="quiz-' + qi + '" value="' + oi + '"> ' + esc(opt) + '</label>';
+        });
+        html += '</div>';
+      });
+      html += '<button class="btn-primary pdf-btn" type="button" data-quiz-submit>উত্তর জমা দিন</button>';
+    } else if (t.id === 'referral') {
+      html += '<button class="btn-secondary pdf-btn" type="button" data-ref-share>🔗 রেফারেল লিংক কপি করুন</button>';
+      html += '<div class="task-status">প্রতি বন্ধু — বন্ধু চেক-ইন করলেই পাবেন</div>';
+    } else if (t.id === 'ad') {
+      html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
+      html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      html += '<div class="task-status' + (t.done ? ' done' : '') + '">' + (t.done ? 'সম্পন্ন ✓' : 'দিনে ৫ বার পর্যন্ত') + '</div>';
+    } else if (t.id === 'react_daily') {
+      html += '<a class="btn-secondary pdf-btn" href="https://t.me/bazargoo287/83" target="_blank" rel="noopener">❤️ পিন করা পোস্ট খুলুন</a>';
+      html += '<button class="btn-primary pdf-btn" type="button" data-claim="react_daily"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
+    } else if (t.id === 'video_daily') {
+      html += '<video class="earn-video" src="videos/bot-tutorial.mp4" controls playsinline preload="metadata" data-video-player></video>';
+      html += '<div class="video-note">ভিডিওটি পুরো দেখলে দাবি বোতাম চালু হবে।</div>';
+      if (t.done) {
+        html += '<button class="btn-secondary pdf-btn" type="button" disabled>আবার ' + fmtCooldown(t.available_in_ms) + ' পর</button>';
+        html += '<div class="task-status">আবার ' + fmtCooldown(t.available_in_ms) + ' পর করা যাবে</div>';
+      } else {
+        html += '<button class="btn-primary pdf-btn" type="button" data-claim="video_daily" data-video-claim disabled>ভিডিও শেষ হলে দাবি করুন</button>';
+        html += '<div class="task-status">২৪ ঘণ্টায় ১ বার</div>';
+      }
+    } else if (t.id.indexOf('join_') === 0) {
+      var ch = { join_bazargoo: 'bazargoo287', join_earnplaygame: 'earnplaygame21', join_cryptoguru: 'cryptoguru_247', join_adsterratt: 'adsterratt' }[t.id];
+      html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
+      html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'যাচাই করুন') + '</button>';
+      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
+    } else {
+      html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
+      if (t.done) html += '<div class="task-status done">সম্পন্ন ✓</div>';
+    }
+    html += '</article>';
+    return html;
+  }
   function renderTasks() {
     var sec = $('earnSection');
     if (!sec) return;
     sec.hidden = false;
     $('earnBalance').textContent = 'আপনার ZERO: ' + earnBalance;
+    renderProfile();
+    renderStreak();
+    var byId = {};
+    earnTasks.forEach(function (t) { byId[t.id] = t; });
+    var groups = [
+      { title: '🎁 দৈনিক', ids: ['checkin', 'quiz', 'react_daily'] },
+      { title: '👥 কমিউনিটি', ids: ['join_bazargoo', 'join_earnplaygame', 'join_cryptoguru', 'join_adsterratt'] },
+      { title: '📺 দেখুন ও আয় করুন', ids: ['ad', 'video_daily'] },
+      { title: '🔗 রেফারেল', ids: ['referral'] },
+    ];
     var html = '';
+    groups.forEach(function (g) {
+      var cards = '';
+      g.ids.forEach(function (id) { if (byId[id]) cards += taskCardHTML(byId[id]); });
+      if (cards) html += '<div class="earn-group-title">' + esc(g.title) + '</div>' + cards;
+    });
+    // Any task not in a group (future-proofing) still renders.
     earnTasks.forEach(function (t) {
-      var doneLabel = (t.id.indexOf('join_') === 0) ? 'হয়ে গেছে ✓' : 'আজ হয়েছে ✓';
-      html += '<article class="pdf-card">' +
-        '<div class="pdf-title">' + esc(t.title) + '</div>' +
-        (t.desc ? '<div class="pdf-desc">' + esc(t.desc) + '</div>' : '') +
-        '<div class="pdf-price-row"><span class="pdf-price">+' + t.reward + ' ZERO</span></div>';
-      if (t.id === 'quiz' && !t.done && t.questions) {
-        t.questions.forEach(function (q, qi) {
-          html += '<div class="quiz-q"><p>' + esc(q.q) + '</p>';
-          q.options.forEach(function (opt, oi) {
-            html += '<label class="quiz-opt"><input type="radio" name="quiz-' + qi + '" value="' + oi + '"> ' + esc(opt) + '</label>';
-          });
-          html += '</div>';
-        });
-        html += '<button class="btn-primary pdf-btn" type="button" data-quiz-submit>উত্তর জমা দিন</button>';
-      } else if (t.id === 'referral') {
-        html += '<button class="btn-secondary pdf-btn" type="button" data-ref-share>🔗 রেফারেল লিংক কপি করুন</button>';
-      } else if (t.id === 'ad') {
-        html += '<a class="btn-primary pdf-btn" href="' + WORKER_URL + '/go?ad=zerads&user_id=' + encodeURIComponent(tgUserId()) + '" target="_blank" rel="noopener">👁️ বিজ্ঞাপন দেখুন</a>';
-        html += '<button class="btn-secondary pdf-btn" type="button" data-claim="ad"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      } else if (t.id === 'react_daily') {
-        html += '<a class="btn-secondary pdf-btn" href="https://t.me/bazargoo287/83" target="_blank" rel="noopener">❤️ পিন করা পোস্ট খুলুন</a>';
-        html += '<button class="btn-primary pdf-btn" type="button" data-claim="react_daily"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      } else if (t.id.indexOf('join_') === 0) {
-        var ch = { join_bazargoo: 'bazargoo287', join_earnplaygame: 'earnplaygame21', join_cryptoguru: 'cryptoguru_247', join_adsterratt: 'adsterratt' }[t.id];
-        html += '<a class="btn-secondary pdf-btn" href="https://t.me/' + ch + '" target="_blank" rel="noopener">চ্যানেলে জয়েন করুন</a>';
-        html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'যাচাই করুন') + '</button>';
-      } else {
-        html += '<button class="btn-primary pdf-btn" type="button" data-claim="' + esc(t.id) + '"' + (t.done ? ' disabled' : '') + '>' + (t.done ? doneLabel : 'দাবি করুন') + '</button>';
-      }
-      html += '</article>';
+      var grouped = groups.some(function (g) { return g.ids.indexOf(t.id) !== -1; });
+      if (!grouped) html += taskCardHTML(t);
     });
     $('earnTaskRow').innerHTML = html;
     Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-claim]'), function (b) {
@@ -386,6 +475,24 @@
     if (qs) qs.addEventListener('click', submitQuiz);
     var rs = $('earnTaskRow').querySelector('[data-ref-share]');
     if (rs) rs.addEventListener('click', function () { copyRefLink(rs); });
+    // Video: Claim stays disabled until the video ends; a load failure
+    // shows a clear message instead of a broken player.
+    Array.prototype.forEach.call($('earnTaskRow').querySelectorAll('[data-video-player]'), function (v) {
+      var card = v.closest ? v.closest('article') : null;
+      var btn = card ? card.querySelector('[data-video-claim]') : null;
+      var note = card ? card.querySelector('.video-note') : null;
+      if (btn) {
+        v.addEventListener('ended', function () {
+          btn.disabled = false;
+          btn.textContent = 'দাবি করুন';
+          if (note) note.textContent = 'ভিডিও দেখা শেষ ✓ — এখন দাবি করুন।';
+        });
+      }
+      v.addEventListener('error', function () {
+        if (note) note.textContent = 'ভিডিওটি লোড হয়নি — ইন্টারনেট চেক করে আবার খুলুন।';
+        v.style.display = 'none';
+      });
+    });
   }
   function claimTask(id, answers) {
     var uid = tgUserId();
