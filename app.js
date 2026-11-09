@@ -338,6 +338,7 @@
   var earnTasks = [];
   var earnProfile = null;
   var earnStreak = null;
+  var earnMonthly = null; // monthly check-in progress from /tasks (v19)
   var earnLoaded = false; // true once /tasks has returned (used by the bottom nav)
   var earnDeviceConflict = false; // true when this device belongs to another account
   function loadTasks() {
@@ -356,6 +357,7 @@
         earnTasks = Array.isArray(data.tasks) ? data.tasks : [];
         earnProfile = data.profile || null;
         earnStreak = data.streak || null;
+        earnMonthly = data.monthly_progress || null;
         earnDeviceConflict = !!data.device_conflict;
         earnLoaded = true;
         renderTasks();
@@ -465,6 +467,13 @@
     if (reason === 'no_click') return 'প্রথমে বিজ্ঞাপনটি দেখুন, তারপর দাবি করুন।';
     if (reason === 'cooldown') return 'এখনো সময় হয়নি — আবার পরে চেষ্টা করুন।';
     if (reason === 'device_conflict') return 'এই মোবাইলে already একটা অ্যাকাউন্ট আছে — এই অ্যাকাউন্ট দিয়ে আয় করা যাবে না।';
+    if (reason === 'locked') return 'স্পিন এখনো আনলক হয়নি — শর্তগুলো পূরণ করুন।';
+    if (reason === 'not_top3') return 'আপনি গত সপ্তাহের সেরা ৩-এ নেই।';
+    if (reason === 'expired') return 'এই পুরস্কারের মেয়াদ শেষ।';
+    if (reason === 'already_claimed') return 'এই পুরস্কারটি ইতিমধ্যে নেওয়া হয়েছে।';
+    if (reason === 'not_winner') return 'আপনি এই মাসের বিজয়ী নন।';
+    if (reason === 'invalid_item') return 'এই PDF-টি বেছে নেওয়া যাবে না।';
+    if (reason === 'insufficient_balance') return 'ZERO যথেষ্ট নয়।';
     return 'দাবি করা যায়নি — আবার চেষ্টা করুন।';
   }
   function showEarnAlert(msg) {
@@ -574,6 +583,9 @@
     }
     renderProfile();
     renderStreak();
+    renderMonthly();
+    renderSpin();
+    renderLeaderboard();
     var byId = {};
     earnTasks.forEach(function (t) { byId[t.id] = t; });
     var groups = [
@@ -588,8 +600,10 @@
       g.ids.forEach(function (id) { if (byId[id]) cards += taskCardHTML(byId[id]); });
       if (cards) html += '<div class="earn-group-title">' + esc(g.title) + '</div>' + cards;
     });
-    // Any task not in a group (future-proofing) still renders.
+    // Any task not in a group (future-proofing) still renders — except
+    // spin_daily, which has its own wheel card (renderSpin above).
     earnTasks.forEach(function (t) {
+      if (t.id === 'spin_daily') return;
       var grouped = groups.some(function (g) { return g.ids.indexOf(t.id) !== -1; });
       if (!grouped) html += taskCardHTML(t);
     });
@@ -666,6 +680,371 @@
     }
     claimTask('quiz', answers);
   }
+  // ---------- v19: Lucky Spin, monthly bonus, leaderboard, ZERO coupon, referral contest ----------
+  // Lucky Spin is completely FREE — 1 spin per Dhaka day, strict unlock
+  // (today's check-in + 3 different tasks today + streak 3+). The prize
+  // is rolled SERVER-side; the wheel only animates to the server's prize.
+  var SPIN_SEGMENTS = [1, 2, 3, 5, 10, 25];
+  var spinRotation = 0;
+  var spinning = false;
+  var lastSpinPrize = null; // shown again after the refresh that follows a spin
+  function spinMissingText(missing) {
+    var out = [];
+    (missing || []).forEach(function (m) {
+      if (m === 'checkin_today') out.push('আজকের চেক-ইন বাকি');
+      else if (m === 'device_conflict') out.push('এই মোবাইলে already একটা অ্যাকাউন্ট আছে');
+      else if (m.indexOf('tasks_today:') === 0) {
+        var p1 = m.split(':')[1].split('/');
+        out.push('আজ আরও ' + bnNum(3 - Number(p1[0])) + 'টি আলাদা টাস্ক করো (' + bnNum(p1[0]) + '/৩)');
+      } else if (m.indexOf('streak:') === 0) {
+        var p2 = m.split(':')[1].split('/');
+        out.push('স্ট্রিক ' + bnNum(p2[0]) + '/৩ দিন — আরও ' + bnNum(3 - Number(p2[0])) + ' দিন চেক-ইন করো');
+      } else out.push(m);
+    });
+    return out;
+  }
+  function renderMonthly() {
+    var el = $('earnMonthly');
+    if (!el) return;
+    if (!earnMonthly) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    var m = earnMonthly;
+    var count = Number(m.count) || 0;
+    var target = Number(m.target) || 25;
+    var pct = Math.min(100, Math.round((count / target) * 100));
+    var line = m.claimed_this_month
+      ? 'এই মাসের বোনাস পাওয়া গেছে ✓'
+      : 'এই মাসে ' + bnNum(count) + '/' + bnNum(target) + ' চেক-ইন — ' + bnNum(target) + ' হলেই ' + bnNum(m.reward || 50) + ' ZERO';
+    el.innerHTML = '<div class="streak-strip"><div class="streak-title">📅 মাসিক চেক-ইন বোনাস: ' +
+      bnNum(count) + '/' + bnNum(target) + '</div>' +
+      '<div class="earn-progress"><div class="earn-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="task-status">' + esc(line) + '</div></div>';
+  }
+  function renderSpin() {
+    var box = $('spinBox');
+    if (!box) return;
+    var t = null;
+    earnTasks.forEach(function (x) { if (x.id === 'spin_daily') t = x; });
+    if (!t) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    var prizes = Array.isArray(t.prizes) ? t.prizes : [];
+    var tierLine = prizes.map(function (p) { return bnNum(p.prize) + ' ZERO — ' + bnNum(fmtZero(p.chance)) + '%'; }).join(' • ');
+    var btnHtml, statusHtml;
+    if (t.done) {
+      btnHtml = '<button class="btn-secondary pdf-btn" type="button" disabled>আজ ঘোরানো হয়েছে ✓ — আগামীকাল আবার</button>';
+      statusHtml = '<div class="task-status done">আজকের স্পিন সম্পন্ন ✓</div>';
+    } else if (t.locked) {
+      btnHtml = '<button class="btn-secondary pdf-btn" type="button" disabled>🎡 স্পিন করুন</button>';
+      statusHtml = '<div class="task-status">আনলক করতে বাকি:<br>• ' + spinMissingText(t.missing).map(esc).join('<br>• ') + '</div>';
+    } else {
+      btnHtml = '<button class="btn-primary pdf-btn" type="button" data-spin>🎡 স্পিন করুন — সম্পূর্ণ ফ্রি!</button>';
+      statusHtml = '<div class="task-status">আজ ১ বার ঘোরানো যাবে — পুরস্কার সার্ভারেই ঠিক হয়।</div>';
+    }
+    var labels = '';
+    SPIN_SEGMENTS.forEach(function (p, i) {
+      labels += '<div class="spin-label" style="transform: rotate(' + (i * 60 + 30) + 'deg)"><span>' + bnNum(p) + '</span></div>';
+    });
+    var resultHtml = (t.done && lastSpinPrize !== null)
+      ? '<div class="spin-result">🎉 আজ জিতেছেন ' + bnNum(fmtZero(lastSpinPrize)) + ' ZERO</div>'
+      : '<div class="spin-result" id="spinResult" hidden></div>';
+    box.innerHTML =
+      '<article class="pdf-card"><div class="pdf-title">🎡 Lucky Spin</div>' +
+      '<div class="pdf-desc">সম্পূর্ণ ফ্রি — ১ দিনে ১ বার। শর্ত: আজকের চেক-ইন + আজ ৩টি আলাদা টাস্ক + টানা ৩ দিনের স্ট্রিক।</div>' +
+      '<div class="spin-wrap"><div class="spin-pointer">▼</div><div class="spin-wheel" id="spinWheel">' + labels + '<div class="spin-hub">🎡</div></div></div>' +
+      btnHtml + statusHtml +
+      '<div class="task-status">পুরস্কার: ' + esc(tierLine) + '</div>' +
+      resultHtml + '</article>';
+    var btn = box.querySelector('[data-spin]');
+    if (btn) btn.addEventListener('click', doSpin);
+  }
+  function doSpin() {
+    var uid = tgUserId();
+    if (!uid || spinning) return;
+    var btn = document.querySelector('[data-spin]');
+    var wheel = $('spinWheel');
+    var resEl = $('spinResult');
+    if (btn) btn.disabled = true;
+    spinning = true;
+    var user = telegramUser();
+    var body = { user_id: uid, task: 'spin_daily' };
+    if (user && user.first_name) body.name = user.first_name;
+    var dev = deviceId();
+    if (dev) body.device_id = dev;
+    fetch(WORKER_URL + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          spinning = false;
+          showEarnAlert(claimErrorText(data.reason));
+          loadTasks();
+          return;
+        }
+        var prize = Number(data.prize);
+        var idx = SPIN_SEGMENTS.indexOf(prize);
+        if (idx === -1) idx = 0;
+        var center = idx * 60 + 30;
+        var cur = ((spinRotation % 360) + 360) % 360;
+        var delta = (360 - center - cur + 360) % 360;
+        var jitter = Math.floor(Math.random() * 37) - 18; // stay inside the segment
+        spinRotation += 360 * 5 + delta + jitter;
+        if (wheel) {
+          wheel.style.transition = 'transform 4.2s cubic-bezier(0.12, 0.8, 0.08, 1)';
+          wheel.style.transform = 'rotate(' + spinRotation + 'deg)';
+        }
+        setTimeout(function () {
+          spinning = false;
+          lastSpinPrize = prize;
+          earnBalance = data.balance;
+          haptic('medium');
+          if (resEl) {
+            resEl.hidden = false;
+            resEl.textContent = '🎉 অভিনন্দন! আপনি জিতেছেন ' + bnNum(fmtZero(prize)) + ' ZERO';
+          }
+          loadTasks();
+        }, 4400);
+      })
+      .catch(function () { spinning = false; if (btn) btn.disabled = false; });
+  }
+  function renderLeaderboard() {
+    var box = $('leaderboardBox');
+    if (!box) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) { box.hidden = true; box.innerHTML = ''; return; }
+    fetch(WORKER_URL + '/leaderboard?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        box.hidden = false;
+        var medal = ['🥇', '🥈', '🥉'];
+        var html = '<div class="earn-group-title">🏆 লিডারবোর্ড — এই সপ্তাহ (' + esc(String(data.week || '')) + ')</div>';
+        var top = Array.isArray(data.top10) ? data.top10 : [];
+        if (!top.length) {
+          html += '<div class="pdf-note">এই সপ্তাহে এখনো কেউ আয় করেনি — টাস্ক করে প্রথম হোন!</div>';
+        } else {
+          top.forEach(function (r) {
+            var me = r.user_id === uid;
+            html += '<div class="hist-row' + (me ? ' lb-me' : '') + '"><div><div class="hist-title">' +
+              (medal[r.rank - 1] || ('#' + bnNum(r.rank))) + ' ' + esc(r.name || 'বন্ধু') +
+              (me ? ' (আপনি)' : '') + ' • লেভেল ' + bnNum(r.level || 1) + '</div>' +
+              '<div class="hist-date">এই সপ্তাহের আয়</div></div>' +
+              '<div class="hist-amt pos">+' + bnNum(fmtZero(r.weekly_earned || 0)) + ' ZERO</div></div>';
+          });
+        }
+        if (data.my_rank) {
+          html += '<div class="task-status">আপনার র‍্যাঙ্ক: #' + bnNum(data.my_rank) + ' • এই সপ্তাহে ' + bnNum(fmtZero(data.my_weekly_earned || 0)) + ' ZERO</div>';
+        } else {
+          html += '<div class="task-status">আপনি এখনো এই সপ্তাহের তালিকায় নেই — টাস্ক করলেই র‍্যাঙ্ক আসবে।</div>';
+        }
+        var last = Array.isArray(data.last_week_top3) ? data.last_week_top3 : [];
+        if (last.length) {
+          html += '<div class="earn-group-title">গত সপ্তাহের সেরা ৩ (' + esc(String(data.last_week || '')) + ')</div>';
+          last.forEach(function (r) {
+            html += '<div class="hist-row"><div><div class="hist-title">' +
+              (medal[r.rank - 1] || ('#' + bnNum(r.rank))) + ' ' + esc(r.name || 'বন্ধু') +
+              '</div><div class="hist-date">গত সপ্তাহের আয়</div></div>' +
+              '<div class="hist-amt pos">+' + bnNum(fmtZero(r.weekly_earned || 0)) + ' ZERO</div></div>';
+          });
+        }
+        if (data.prize_claimable) {
+          html += '<button class="btn-primary pdf-btn" type="button" data-lb-claim>🏆 পুরস্কার দাবি করুন — ' + bnNum(data.my_prize || 0) + ' ZERO</button>';
+        } else if (data.prize_claimed) {
+          html += '<div class="task-status done">গত সপ্তাহের পুরস্কার নেওয়া হয়েছে ✓</div>';
+        }
+        box.innerHTML = html;
+        var cb = box.querySelector('[data-lb-claim]');
+        if (cb) cb.addEventListener('click', claimLeaderboardPrize);
+      })
+      .catch(function () { box.hidden = true; });
+  }
+  function claimLeaderboardPrize() {
+    var uid = tgUserId();
+    if (!uid) return;
+    var body = { user_id: uid, task: 'leaderboard_prize' };
+    var dev = deviceId();
+    if (dev) body.device_id = dev;
+    fetch(WORKER_URL + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          earnBalance = data.balance;
+          haptic('medium');
+          showEarnAlert('🏆 অভিনন্দন! গত সপ্তাহে #' + bnNum(data.rank) + ' — ' + bnNum(fmtZero(data.credited)) + ' ZERO পুরস্কার পেয়েছেন!');
+          loadTasks();
+        } else {
+          showEarnAlert(claimErrorText(data.reason));
+          renderLeaderboard();
+        }
+      })
+      .catch(function () {});
+  }
+  // ---------- v19: ZERO coupon (Profile) ----------
+  // 100 ZERO buys a one-time 5% off code (ZERO5-XXXXXX). One coupon per
+  // order — it never stacks with BAZAR5 (enforced in applyCoupon).
+  function renderCoupons() {
+    var card = $('couponCard');
+    var list = $('myCouponsList');
+    var empty = $('myCouponsEmpty');
+    if (!card) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) {
+      card.innerHTML = '';
+      if (list) list.innerHTML = '';
+      if (empty) empty.hidden = true;
+      return;
+    }
+    card.innerHTML =
+      '<div class="earn-profile-top">' +
+      '<div class="earn-avatar">🎟️</div>' +
+      '<div><div class="earn-name">৫% ছাড়ের কুপন</div>' +
+      '<div class="earn-level">১০০ ZERO = একবারের ৫% ছাড় — BAZAR5-এর সাথে চলবে না</div></div>' +
+      '<div class="earn-balance-big">১০০ ZERO</div></div>' +
+      '<div class="wallet-actions">' +
+      '<button class="btn-primary" type="button" data-buy-coupon>🎟️ কুপন কিনুন — ১০০ ZERO</button>' +
+      '</div>' +
+      '<div class="task-status">কেনার পর কোডটি নিচে দেখাবে — চেকআউটে কোডটি লিখলেই ৫% ছাড়।</div>';
+    var bb = card.querySelector('[data-buy-coupon]');
+    if (bb) bb.addEventListener('click', buyCoupon);
+    fetch(WORKER_URL + '/coupons?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var cs = Array.isArray(data.coupons) ? data.coupons : [];
+        if (empty) empty.hidden = cs.length > 0;
+        if (!list) return;
+        if (!cs.length) { list.innerHTML = ''; return; }
+        list.innerHTML = cs.map(function (c) {
+          return '<article class="pdf-card"><div class="pdf-title">' + esc(c.code) + '</div>' +
+            '<div class="pdf-desc">' + (c.used ? 'ব্যবহার করা হয়েছে ✓' : 'ব্যবহার করা হয়নি — চেকআউটে ব্যবহার করুন') + '</div>' +
+            (c.used ? '' : '<button class="btn-secondary pdf-btn" type="button" data-copy-coupon="' + esc(c.code) + '">📋 কোড কপি করুন</button>') +
+            '</article>';
+        }).join('');
+        Array.prototype.forEach.call(list.querySelectorAll('[data-copy-coupon]'), function (b) {
+          b.addEventListener('click', function () {
+            var code = b.getAttribute('data-copy-coupon');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(code).then(function () { flashCopied(b); }, function () { fallbackCopy(code); flashCopied(b); });
+            } else { fallbackCopy(code); flashCopied(b); }
+          });
+        });
+      })
+      .catch(function () {});
+  }
+  function buyCoupon() {
+    var uid = tgUserId();
+    if (!uid) return;
+    fetch(WORKER_URL + '/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid, item_id: 'coupon_5pct' }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          earnBalance = data.balance;
+          haptic('medium');
+          showEarnAlert('🎟️ কুপন কেনা হয়েছে! কোড: ' + data.code);
+          loadTasks();
+          renderCoupons();
+        } else if (data.reason === 'insufficient_balance') {
+          showEarnAlert('ZERO যথেষ্ট নয় — কুপনের দাম ১০০ ZERO (আপনার ব্যালেন্স ' + bnNum(fmtZero(data.balance || earnBalance)) + ' ZERO)।');
+        } else {
+          showEarnAlert('কুপন কেনা যায়নি — আবার চেষ্টা করুন।');
+        }
+      })
+      .catch(function () {});
+  }
+  // ---------- v19: Referral contest (Friend menu, monthly) ----------
+  // This month's top 5 direct referrers; last month's winner claims one
+  // free PDF of their choice during the following month only.
+  var contestPdfRetried = false;
+  function renderContest() {
+    var box = $('contestBox');
+    if (!box) return;
+    var uid = tgUserId();
+    if (!WORKER_URL || !uid) { box.hidden = true; box.innerHTML = ''; return; }
+    fetch(WORKER_URL + '/referral-contest?user_id=' + encodeURIComponent(uid))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        box.hidden = false;
+        var medal = ['🥇', '🥈', '🥉'];
+        var html = '<div class="pdf-note">এই মাসে (' + esc(String(data.month || '')) + ') সবচেয়ে বেশি বন্ধু আনা ৫ জন — গত মাসের বিজয়ী পাবে নিজের পছন্দের ১টি PDF ফ্রি।</div>';
+        var top = Array.isArray(data.top5) ? data.top5 : [];
+        if (!top.length) {
+          html += '<div class="pdf-note">এই মাসে এখনো কেউ রেফারেল করেনি — লিংক শেয়ার করে প্রথম হোন!</div>';
+        } else {
+          top.forEach(function (r) {
+            var me = r.user_id === uid;
+            html += '<div class="hist-row' + (me ? ' lb-me' : '') + '"><div><div class="hist-title">' +
+              (medal[r.rank - 1] || ('#' + bnNum(r.rank))) + ' ' + esc(r.name || 'বন্ধু') + (me ? ' (আপনি)' : '') +
+              '</div><div class="hist-date">সরাসরি রেফারেল</div></div>' +
+              '<div class="hist-amt pos">' + bnNum(r.referrals || 0) + ' জন</div></div>';
+          });
+        }
+        html += '<div class="task-status">আপনার এই মাসের রেফারেল: ' + bnNum(data.my_referrals || 0) + ' জন</div>';
+        var w = data.last_month && data.last_month.winner;
+        if (w) {
+          html += '<div class="task-status">গত মাসের বিজয়ী (' + esc(String(data.last_month.month || '')) + '): ' + esc(w.name || 'বন্ধু') + ' — ' + bnNum(w.referrals || 0) + ' জন রেফারেল</div>';
+        }
+        if (data.am_i_winner && !data.prize_claimed) {
+          var paid = pdfs.filter(function (p) { return !p.free; });
+          html += '<div class="pdf-note">🎉 অভিনন্দন — আপনি গত মাসের বিজয়ী! আপনার পছন্দের ১টি PDF ফ্রি নিন:</div>';
+          if (!paid.length) {
+            html += '<div class="pdf-note">PDF তালিকা লোড হচ্ছে…</div>';
+            // Catalog may not have loaded yet — fetch it once and re-render.
+            if (!contestPdfRetried) {
+              contestPdfRetried = true;
+              loadPdfs().then(function () { renderContest(); });
+            }
+          } else {
+            html += '<select id="contestPdfSelect" class="contest-select">' +
+              paid.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.title) + '</option>'; }).join('') +
+              '</select>' +
+              '<button class="btn-primary pdf-btn" type="button" data-contest-claim>🎁 এই PDF-টি ফ্রি নিন</button>';
+          }
+        } else if (data.am_i_winner && data.prize_claimed) {
+          html += '<div class="task-status done">আপনার পুরস্কার নেওয়া হয়েছে ✓ — বটের চ্যাটে PDF দেখুন।</div>';
+        }
+        box.innerHTML = html;
+        var cb = box.querySelector('[data-contest-claim]');
+        if (cb) cb.addEventListener('click', claimContestPrize);
+      })
+      .catch(function () { box.hidden = true; });
+  }
+  function claimContestPrize() {
+    var uid = tgUserId();
+    if (!uid) return;
+    var sel = $('contestPdfSelect');
+    var itemId = sel ? sel.value : '';
+    if (!itemId) return;
+    var body = { user_id: uid, task: 'referral_contest_prize', item_id: itemId };
+    var dev = deviceId();
+    if (dev) body.device_id = dev;
+    fetch(WORKER_URL + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          haptic('medium');
+          showEarnAlert('PDF পাঠানো হয়েছে — বট চেক করো 🎁');
+          loadTasks();
+          loadMyPdfs();
+          renderContest();
+        } else {
+          showEarnAlert(claimErrorText(data.reason));
+          renderContest();
+        }
+      })
+      .catch(function () {});
+  }
   function copyRefLink(btn) {
     var uid = tgUserId();
     if (!uid) return;
@@ -726,6 +1105,7 @@
         list.innerHTML = html;
       })
       .catch(function () {});
+    renderContest();
   }
   // ---------- Profile menu: wallet + histories (v18) ----------
   // Withdraw / Deposit are DISABLED for now (UI only, "শীঘ্রই আসছে");
@@ -738,6 +1118,7 @@
     sec.hidden = false;
     renderProfile();
     renderWallet();
+    renderCoupons();
   }
   function renderWallet() {
     var el = $('walletCard');
@@ -922,7 +1303,9 @@
   }
   function shippingFee() { return SHIPPING[deliveryZone()] || 60; }
   function discountAmount() {
-    return appliedCoupon === COUPON_CODE ? Math.round(cartTotal() * COUPON_PCT) : 0;
+    // One coupon per order: BAZAR5 or a ZERO5 code, never both — the
+    // mutual exclusion is enforced in applyCoupon.
+    return appliedCoupon ? Math.round(cartTotal() * COUPON_PCT) : 0;
   }
   function grandTotal() { return cartTotal() - discountAmount() + shippingFee(); }
 
@@ -940,6 +1323,9 @@
     try {
       var c = localStorage.getItem(COUPON_APPLIED_KEY) || '';
       if (c === COUPON_CODE && loadUsedCoupons().indexOf(COUPON_CODE) === -1) return c;
+      // A ZERO5 code was server-verified when applied; the server is the
+      // source of truth for its used state (marked used at order time).
+      if (c.indexOf('ZERO5-') === 0) return c;
     } catch (e) {}
     return '';
   }
@@ -967,17 +1353,49 @@
     var input = $('couponInput');
     var code = (input ? input.value : '').trim().toUpperCase();
     if (!code) return; // empty: do nothing
-    if (code !== COUPON_CODE) { couponNote('ভুল কুপন কোড।', 'err'); return; }
-    if (loadUsedCoupons().indexOf(COUPON_CODE) !== -1) {
-      couponNote('এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।', 'err');
+    if (cartCount() === 0) { couponNote('প্রথমে কার্টে পণ্য যোগ করুন।', 'err'); return; }
+    if (code === COUPON_CODE) {
+      if (appliedCoupon && appliedCoupon.indexOf('ZERO5-') === 0) {
+        couponNote('এক অর্ডারে একটি কুপনই চলবে — ZERO5 কুপনটি সরিয়ে BAZAR5 দিন।', 'err');
+        return;
+      }
+      if (loadUsedCoupons().indexOf(COUPON_CODE) !== -1) {
+        couponNote('এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।', 'err');
+        return;
+      }
+      appliedCoupon = COUPON_CODE;
+      saveAppliedCoupon();
+      if (input) input.value = COUPON_CODE;
+      couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
+      updateTotals();
       return;
     }
-    if (cartCount() === 0) { couponNote('প্রথমে কার্টে পণ্য যোগ করুন।', 'err'); return; }
-    appliedCoupon = COUPON_CODE;
-    saveAppliedCoupon();
-    if (input) input.value = COUPON_CODE;
-    couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
-    updateTotals();
+    if (code.indexOf('ZERO5-') === 0) {
+      if (appliedCoupon === COUPON_CODE) {
+        couponNote('এক অর্ডারে একটি কুপনই চলবে — BAZAR5 সরিয়ে ZERO5 কুপন দিন।', 'err');
+        return;
+      }
+      var uid = tgUserId();
+      if (!uid) { couponNote('ZERO5 কুপন শুধু Telegram অ্যাপে যাচাই করা যায়।', 'err'); return; }
+      couponNote('কুপন যাচাই হচ্ছে…', 'ok');
+      fetch(WORKER_URL + '/coupon?code=' + encodeURIComponent(code) + '&user_id=' + encodeURIComponent(uid))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok && data.valid) {
+            appliedCoupon = code;
+            saveAppliedCoupon();
+            if (input) input.value = code;
+            couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉 (ZERO5 কুপন)', 'ok', true);
+            updateTotals();
+          } else if (data.reason === 'not_found') couponNote('কুপন কোডটি পাওয়া যায়নি।', 'err');
+          else if (data.reason === 'not_yours') couponNote('এই কুপনটি আপনার নয়।', 'err');
+          else if (data.reason === 'already_used') couponNote('এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।', 'err');
+          else couponNote('কুপন যাচাই করা যায়নি — আবার চেষ্টা করুন।', 'err');
+        })
+        .catch(function () { couponNote('কুপন যাচাই করা যায়নি — ইন্টারনেট চেক করুন।', 'err'); });
+      return;
+    }
+    couponNote('ভুল কুপন কোড।', 'err');
   }
   function removeCoupon() {
     appliedCoupon = '';
@@ -992,7 +1410,8 @@
     appliedCoupon = loadAppliedCoupon();
     var input = $('couponInput');
     if (input) input.value = appliedCoupon;
-    if (appliedCoupon) couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
+    if (appliedCoupon === COUPON_CODE) couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉', 'ok', true);
+    else if (appliedCoupon) couponNote('৫% ছাড় প্রয়োগ হয়েছে! 🎉 (ZERO5 কুপন)', 'ok', true);
     else couponNote('');
   }
 
@@ -1569,6 +1988,8 @@
     var disc = discountAmount();
     var row = $('discountRow');
     if (row) row.hidden = disc <= 0;
+    var dl = $('discountLabel');
+    if (dl) dl.textContent = (appliedCoupon && appliedCoupon.indexOf('ZERO5-') === 0) ? 'ছাড় (ZERO5 — ৫%)' : 'ছাড় (BAZAR5 — ৫%)';
     var dv = $('discountVal');
     if (dv) dv.textContent = '−' + fmt(disc);
     $('grandTotalVal').textContent = fmt(grandTotal());
@@ -1911,7 +2332,7 @@
       user: user,
       ordered_at: new Date().toISOString()
     };
-    if (disc > 0) { order.coupon = COUPON_CODE; order.discount = disc; }
+    if (disc > 0) { order.coupon = appliedCoupon; order.discount = disc; }
     return order;
   }
 
@@ -1925,7 +2346,8 @@
     var d = order.delivery || {};
     lines.push('', 'পণ্যের মোট: ৳' + (order.subtotal || order.total).toLocaleString('en-US'));
     if (order.discount) {
-      lines.push('ছাড় (BAZAR5 — প্রথম অর্ডারে ৫%): −৳' + order.discount.toLocaleString('en-US'));
+      var cLabel = (order.coupon && order.coupon.indexOf('ZERO5-') === 0) ? 'ZERO5 কুপন (৫%)' : 'BAZAR5 — প্রথম অর্ডারে ৫%';
+      lines.push('ছাড় (' + cLabel + '): −৳' + order.discount.toLocaleString('en-US'));
     }
     if (d.shipping_fee !== undefined) {
       lines.push('ডেলিভারি (' + (d.shipping_zone === 'outside' ? 'ঢাকার বাইরে' : 'ঢাকার ভেতরে') + '): ৳' + d.shipping_fee.toLocaleString('en-US'));
@@ -1944,6 +2366,41 @@
     if (!delivery) return;
     saveDelivery(delivery);
     var order = buildOrder(delivery);
+    // ZERO5 coupon: mark it used on the server BEFORE the order goes
+    // out — one coupon per order, never stacked with BAZAR5 (applyCoupon
+    // already enforces that). If the code is no longer valid, stop the
+    // order so the discount is not given for free; a network failure
+    // still lets the order through (the code then stays usable once).
+    if (appliedCoupon && appliedCoupon.indexOf('ZERO5-') === 0) {
+      var code = appliedCoupon;
+      var uid = tgUserId();
+      var fe = $('formError');
+      if (!uid) {
+        if (fe) { fe.hidden = false; fe.textContent = 'ZERO5 কুপন শুধু Telegram অ্যাপে ব্যবহার করা যায়।'; }
+        return;
+      }
+      fetch(WORKER_URL + '/coupon/use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, code: code }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) { finishPlaceOrder(order); }
+          else {
+            appliedCoupon = '';
+            saveAppliedCoupon();
+            couponNote('কুপনটি ব্যবহার করা যায়নি — আবার কুপন দিন।', 'err');
+            updateTotals();
+            if (fe) { fe.hidden = false; fe.textContent = 'কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে বা পাওয়া যায়নি — কুপন ছাড়া অর্ডার করুন।'; }
+          }
+        })
+        .catch(function () { finishPlaceOrder(order); });
+      return;
+    }
+    finishPlaceOrder(order);
+  }
+  function finishPlaceOrder(order) {
     // Save a compact record for "আমার অর্ডার" (per-device only, no
     // name/phone/address — the full order already went to the shop).
     // Stored item ids (not in the spec's field list) let "আবার কিনুন"
@@ -1971,6 +2428,12 @@
       appliedCoupon = '';
       saveAppliedCoupon();
       renderCouponBanner();
+    }
+    // ZERO5: the code was already marked used on the server in
+    // placeOrder — just clear the local applied state here.
+    if (appliedCoupon && appliedCoupon.indexOf('ZERO5-') === 0) {
+      appliedCoupon = '';
+      saveAppliedCoupon();
     }
     if (tg && tg.sendData) {
       try { tg.sendData(JSON.stringify(order)); } catch (e) { /* fall through to the copy backup below */ }
