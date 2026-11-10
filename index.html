@@ -28,13 +28,10 @@
     </div>
   </header>
 
-  <div id="couponBanner" class="coupon-banner" role="button" tabindex="0">
-    <span class="coupon-banner-text" data-i18n="coupons.banner_first_order_5pct_bazar5">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>
-    <span class="coupon-banner-hint" data-i18n="coupons.banner_tap_to_copy">চাপ দিলে কপি হবে</span>
-  </div>
-
-  <!-- v30: Promote banner (Gram Network style — purple gradient card).
-       Tapping it opens the Promotion Ads page. -->
+  <!-- v31: Promote banner (Gram Network style — purple gradient card).
+       GLOBAL + STICKY: it sits directly under the app header and stays
+       visible at the top on EVERY tab/page, not just Shop. Tapping it
+       opens the Promotion Ads page. -->
   <div id="promoteBanner" class="promote-banner" role="button" tabindex="0">
     <span class="promote-banner-icon" aria-hidden="true">📢</span>
     <span class="promote-banner-text">
@@ -42,6 +39,11 @@
       <span class="promote-banner-sub" data-i18n="promote.banner_subtitle">Reach thousands of active users</span>
     </span>
     <span class="promote-banner-arrow" aria-hidden="true">→</span>
+  </div>
+
+  <div id="couponBanner" class="coupon-banner" role="button" tabindex="0">
+    <span class="coupon-banner-text" data-i18n="coupons.banner_first_order_5pct_bazar5">🎉 প্রথম অর্ডারে ৫% ছাড় — কুপন: <strong>BAZAR5</strong></span>
+    <span class="coupon-banner-hint" data-i18n="coupons.banner_tap_to_copy">চাপ দিলে কপি হবে</span>
   </div>
 
   <div class="toolbar">
@@ -489,6 +491,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=31"></script>
 </body>
 </html>
