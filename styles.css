@@ -1408,3 +1408,195 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
 #walletSection .wallet-actions .btn-primary, #walletSection .wallet-actions .btn-secondary { flex: 1; min-height: 52px; }
 #walletSection > .pdf-note { padding: 0 16px; }
 #walletSection .earn-group-title { padding: 0 16px; }
+
+/* ==========================================================================
+   v29 Task page (10 Nov 2026) — ATF Miner black/gold cards + Jack's Farm
+   tabs/stars/checks. EVERYTHING here is scoped to #earnSection or the
+   .atf-* classes, so Shop / Profile / Wallet / PDFs keep the v28 theme.
+   - .atf-heading: large gold "Earn Rewards" + thin gold underline.
+   - .atf-subtitle: small light-grey line under the heading.
+   - .atf-tabs: one rounded container, two tab pills (Jack's Farm).
+   - .atf-task: near-black card, thin gold border, faint watermark icon
+     on the right (ATF).
+   - Pills: .btn-secondary = gold "Go", .btn-primary = teal "Claim",
+     :disabled = dark charcoal ("Processing" look). Green check circle
+     (.atf-done-check) replaces the pill on completed one-time tasks.
+   - .atf-stars: 5-star streak row on the Daily Reward card.
+   ========================================================================== */
+#earnSection {
+  background:
+    radial-gradient(120% 220px at 50% -40px, rgba(232, 185, 60, 0.16), rgba(232, 185, 60, 0) 70%),
+    #0B0908;
+  border-radius: 20px 20px 0 0;
+  padding-bottom: 24px;
+}
+#earnSection .atf-heading {
+  font-size: 28px;
+  font-weight: 900;
+  color: #F5C542;
+  text-align: center;
+  letter-spacing: 0.5px;
+  padding: 14px 16px 8px;
+  margin: 0;
+  border-bottom: 1px solid rgba(232, 185, 60, 0.45);
+}
+#earnSection .atf-subtitle {
+  font-size: 13px;
+  color: #B8B0A4;
+  text-align: center;
+  margin: 8px 16px 0;
+}
+#earnSection #earnBalance { color: #F5C542; font-weight: 800; font-size: 14px; padding: 0 16px; }
+.atf-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 14px 16px 4px;
+  padding: 6px;
+  background: #171310;
+  border: 1px solid rgba(232, 185, 60, 0.35);
+  border-radius: 999px;
+}
+.atf-tab {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #B8B0A4;
+  font-size: 15px;
+  font-weight: 800;
+  min-height: 44px;
+  cursor: pointer;
+}
+.atf-tab.active {
+  background: linear-gradient(135deg, #F7C440, #E8A90C);
+  color: #1A1405;
+  box-shadow: 0 2px 10px rgba(247, 196, 64, 0.35);
+}
+#earnTaskRow.deals-row {
+  display: flex;
+  flex-direction: column;
+  overflow-x: visible;
+  gap: 12px;
+  padding: 10px 16px 12px;
+}
+.atf-task {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: #272118;
+  border: 1px solid rgba(232, 185, 60, 0.55);
+  border-radius: 18px;
+  padding: 12px;
+}
+.atf-wm {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 84px;
+  line-height: 1;
+  opacity: 0.06;
+  pointer-events: none;
+}
+.atf-row { display: flex; align-items: center; gap: 12px; position: relative; }
+.atf-icon {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  background: #0B0908;
+  border: 2px solid #E8B93C;
+  border-radius: 50%;
+}
+.atf-body { flex: 1; min-width: 0; }
+.atf-title { font-size: 15px; font-weight: 800; color: #FFFFFF; line-height: 1.3; }
+.atf-reward { font-size: 13px; font-weight: 800; color: #F5C542; margin-top: 2px; }
+.atf-desc { font-size: 12px; color: #9A938A; line-height: 1.4; margin-top: 2px; }
+.atf-body .pdf-desc { font-size: 12px; color: #9A938A; }
+.atf-action {
+  flex: 0 0 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  position: relative;
+  z-index: 1;
+}
+.atf-task .btn-primary, .atf-task .btn-secondary {
+  min-height: 34px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 999px;
+  margin-top: 0;
+  width: 100%;
+  line-height: 1.25;
+}
+.atf-task .btn-secondary {
+  background: linear-gradient(135deg, #F7C440, #E8A90C);
+  border: 1px solid #F7C440;
+  color: #1A1405;
+  box-shadow: 0 2px 8px rgba(247, 196, 64, 0.25);
+}
+.atf-task .btn-primary {
+  background: linear-gradient(135deg, #3ED598, #1FA97A);
+  border: 1px solid #34D19B;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(52, 209, 155, 0.25);
+}
+.atf-task .btn-primary:disabled, .atf-task .btn-secondary:disabled {
+  background: #1C1A17;
+  border: 1px solid #3A342C;
+  color: #8A8378;
+  opacity: 1;
+  box-shadow: none;
+}
+.atf-done-check {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #27AE60;
+  color: #FFFFFF;
+  font-size: 24px;
+  font-weight: 900;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.4);
+}
+.atf-extra { position: relative; margin-top: 10px; z-index: 1; }
+.atf-extra .task-status { font-size: 12px; color: #9A938A; margin-top: 4px; }
+.atf-extra .task-status.done { color: #34D19B; font-weight: 700; }
+.atf-extra .pdf-btn { display: inline-block; width: auto; min-width: 120px; }
+.atf-extra .quiz-q p { color: #FFFFFF; }
+.atf-extra .quiz-opt { color: #E8E0D0; }
+.atf-extra .video-note { font-size: 12px; color: #9A938A; }
+.atf-stars { font-size: 20px; letter-spacing: 3px; margin-top: 8px; }
+.atf-stars .on { color: #F5C542; }
+.atf-stars .off { color: #4A3F30; }
+/* Promote card inside the Task page gets the same black/gold card. */
+#earnSection .pdf-card {
+  flex: 0 0 auto;
+  background: #272118;
+  border: 1px solid rgba(232, 185, 60, 0.55);
+  border-radius: 18px;
+  box-shadow: none;
+}
+#earnSection .pdf-card .pdf-desc { color: #B8B0A4; }
+#earnSection .pdf-card .btn-primary {
+  min-height: 34px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 999px;
+  margin-top: 8px;
+  width: 100%;
+  background: linear-gradient(135deg, #3ED598, #1FA97A);
+  border: 1px solid #34D19B;
+  color: #FFFFFF;
+}
+#earnSection .earn-group-title { font-size: 18px; color: #F5C542; padding: 0; margin: 4px 0 8px; }
