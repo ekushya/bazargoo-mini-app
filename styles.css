@@ -1053,7 +1053,7 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
   background: none;
   color: var(--hint);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 10px; /* v30: 7 tabs fit — labels shrink from 11px */
   font-weight: 600;
   cursor: pointer;
   padding: 6px 0 4px;
@@ -1600,3 +1600,233 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
   color: #FFFFFF;
 }
 #earnSection .earn-group-title { font-size: 18px; color: #F5C542; padding: 0; margin: 4px 0 8px; }
+
+/* ---------- v30: Promote (Gram Network style, BazarGoo data) ----------
+   Purple gradient #7C3AED -> #4F46E5, white cards, soft shadows,
+   rounded corners. The banner sits on the Shop screen below the
+   coupon banner; the page + modal follow the reference screenshots. */
+.promote-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 16px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
+  color: #FFFFFF;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35);
+}
+.promote-banner:active { opacity: 0.85; }
+.promote-banner-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 22px;
+}
+.promote-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.promote-banner-title { font-size: 17px; font-weight: 800; line-height: 1.25; }
+.promote-banner-sub { font-size: 13px; opacity: 0.85; }
+.promote-banner-arrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #7C3AED;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* Promotion Ads page */
+.promote-page { padding-bottom: 8px; }
+.promote-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #111111;
+  color: #FFFFFF;
+  border-radius: 999px;
+  padding: 12px 16px;
+  margin: 4px 0 16px;
+}
+.promote-back-btn {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.promote-page-title { font-size: 17px; font-weight: 800; }
+.promote-stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.promote-stat-card {
+  flex: 1;
+  min-width: 0;
+  background: #FFFFFF;
+  color: #111111;
+  border-radius: 14px;
+  padding: 14px 8px 12px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.promote-stat-label { font-size: 12px; color: #6B7280; margin-bottom: 4px; }
+.promote-stat-value { font-size: 17px; font-weight: 800; }
+.promote-stat-sub { font-size: 12px; color: #6B7280; margin-top: 2px; }
+.promote-create-btn {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35);
+  margin-bottom: 18px;
+}
+.promote-create-btn:active { opacity: 0.85; }
+.promote-my-heading { font-size: 17px; font-weight: 800; margin: 0 0 10px; }
+.promote-my-list { display: flex; flex-direction: column; gap: 10px; }
+.promote-my-empty {
+  text-align: center;
+  color: var(--hint);
+  font-size: 14px;
+  padding: 24px 12px;
+}
+.promote-item-card {
+  background: #FFFFFF;
+  color: #111111;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.promote-item-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+.promote-item-link {
+  font-size: 12px;
+  color: #4F46E5;
+  word-break: break-all;
+  margin-bottom: 8px;
+}
+.promote-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+.promote-item-status {
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.promote-item-status.pending { background: #FEF3C7; color: #92400E; }
+.promote-item-status.live { background: #DCFCE7; color: #166534; }
+.promote-item-status.completed { background: #DBEAFE; color: #1E40AF; }
+.promote-item-status.rejected { background: #FEE2E2; color: #991B1B; }
+
+/* Create New Promotion modal */
+.promote-create-sheet .sheet-body { padding-bottom: 8px; }
+.promote-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 12px 0 5px;
+}
+.promote-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+}
+.promote-input:focus { outline: 2px solid var(--lime); outline-offset: 0; }
+.promote-estimated {
+  font-size: 13px;
+  color: var(--hint);
+  margin: 8px 0 0;
+}
+.promote-estimated strong { color: var(--gold); }
+.promote-select-row { display: flex; gap: 10px; }
+.promote-select-field { flex: 1; min-width: 0; }
+.promote-select { appearance: auto; }
+.promote-now-btn {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.promote-now-btn:active { opacity: 0.85; }
+.promote-cancel-btn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0 4px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--hint);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* Sponsor task image (v30): shown ONLY when the promo has an image
+   URL — promos without one render no image element at all. */
+.sponsor-task-img {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
