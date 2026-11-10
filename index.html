@@ -150,19 +150,33 @@
   </section>
 
   <!-- Wallet screen (v28, Option A — header pill + full screen).
-       v30: also a bottom-nav tab (position 2). Hero, currency rows,
-       gate card and guide are rendered by renderWalletScreen() in
-       app.js; Deposit/Withdraw open the existing v26 wallet sheet. -->
+       v30: also a bottom-nav tab (position 2). v32: ONE clean Wallet —
+       Deposit / Withdraw / Save address are inline cards on this
+       screen (no separate wallet sheet); hero, currency rows, gate
+       card, forms and guide are rendered by renderWalletScreen() /
+       renderWalletForms() in app.js. Order: Balances → Deposit →
+       Withdraw (gate inline) → Saved address → History → Guide. -->
   <section id="walletSection" class="deals" hidden>
     <h2 data-i18n="wallet.profile_wallet_section_title">👛 ওয়ালেট</h2>
     <div id="walletHero"></div>
     <div id="walletCurrencies"></div>
-    <div class="wallet-actions">
-      <button id="walletDepositBtn" class="btn-primary" type="button">⬇️ ডিপোজিট</button>
-      <button id="walletWithdrawBtn" class="btn-secondary" type="button">⬆️ উইথড্র</button>
+    <div id="walletDepositCard" class="earn-profile">
+      <div data-i18n="wallet.deposit_heading"></div>
+      <div id="walletDepositForm"></div>
+      <div id="depPayBox"></div>
     </div>
-    <div class="pdf-note" data-i18n="wallet.withdraw_limits_note"></div>
-    <div id="walletGateCard" class="wallet-gate-card" hidden></div>
+    <div id="walletWithdrawCard" class="earn-profile">
+      <div data-i18n="wallet.withdraw_heading"></div>
+      <div id="walletGateCard" class="wallet-gate-card" hidden></div>
+      <div id="walletWithdrawForm"></div>
+      <div id="wdMsg"></div>
+      <div class="pdf-note" data-i18n="wallet.withdraw_limits_note"></div>
+    </div>
+    <div id="walletAddressCard" class="earn-profile">
+      <div data-i18n="wallet.save_address_heading"></div>
+      <div id="walletAddressForm"></div>
+      <div id="addrMsg"></div>
+    </div>
     <div class="earn-group-title" data-i18n="shop.transaction_history_heading">💳 লেনদেনের ইতিহাস</div>
     <div id="walletHistoryList" class="deals-row"></div>
     <div id="walletHistoryEmpty" class="pdf-note" hidden data-i18n="shop.no_transactions_yet">এখনো কোনো লেনদেন হয়নি।</div>
@@ -406,17 +420,6 @@
     </div>
   </div>
 
-  <!-- Wallet sheet (v26) -->
-  <div id="walletSheet" class="sheet-backdrop" hidden>
-    <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="walletSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
-      <div class="sheet-body">
-        <h2>👛 Wallet</h2>
-        <div id="walletBody"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- Create New Promotion modal (v30 — replaces the v26 promote sheet).
        Image URL is OPTIONAL: leaving it empty is fine and the sponsor
        task then shows without an image. -->
@@ -491,6 +494,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=31"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>
