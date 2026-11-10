@@ -1032,7 +1032,7 @@
       '<div class="earn-avatar">👤</div>' +
       '<div><div class="earn-name">' + esc(p.name || t("profile.default_user_name")) + '</div>' +
       ''+t("profile.level_label")+' ' + bnNum(p.level || 1) + ' '+t("profile.total_earnings_separator")+' ' + bnNum(fmtZero(p.lifetime_earned || 0)) + ' ZERO</div></div>' +
-      '<div class="earn-balance-big">' + bnNum(fmtZero(earnBalance)) + ' ZERO</div>' +
+      '<div class="earn-balance-big">' + bnNum(fmtZero(totalZeroBalance())) + ' ZERO</div>' +
       '</div>' +
       '<div class="earn-progress"><div class="earn-progress-fill" style="width:' + pct + '%"></div></div>' +
       ''+t("profile.next_level_stats_open")+' ' + bnNum(p.xp || 0) + '/' + bnNum(p.xp_next || 50) + ' • ✅ ' + bnNum(p.tasks_completed || 0) + ''+t("profile.tasks_completed_count_suffix")+' ' + bnNum(p.referrals || 0) + ' '+t("contest.referrals_suffix")+'' +
@@ -1315,7 +1315,7 @@
     var sec = $('earnSection');
     if (!sec) return;
     sec.hidden = false;
-    $('earnBalance').textContent = ''+t("tasks.your_zero")+' ' + bnNum(fmtZero(earnBalance));
+    $('earnBalance').textContent = ''+t("tasks.your_zero")+' ' + bnNum(fmtZero(totalZeroBalance()));
     var dn = $('earnDeviceNote');
     if (dn) {
       if (earnDeviceConflict) {
@@ -2230,49 +2230,41 @@
       body: JSON.stringify(body),
     }).then(function (r) { return r.json(); });
   }
+  // v32: the ONE total ZERO balance — earned ZERO + wallet ZERO. Shown
+  // in the header pill, the Profile wallet card, Tasks "Your ZERO"
+  // and the Wallet hero, so the user never sees two different
+  // "balances" in two places. (Purchase logic still uses earnBalance /
+  // wallet balances separately — this is display only.)
+  function totalZeroBalance() {
+    var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
+    var wZero = (walletState && walletState.balance) ? (walletState.balance.zero || 0) : 0;
+    return (Number(earned) || 0) + (Number(wZero) || 0);
+  }
   function renderWallet() {
     var el = $('walletCard');
     if (!el) return;
-    // v28: header balance pill always shows the total ZERO balance.
+    // v32: ONE total ZERO balance everywhere (earned + wallet ZERO) —
+    // header pill, Profile card, Tasks "Your ZERO", Wallet hero.
     var pill = $('balancePillValue');
-    if (pill) {
-      var w0 = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
-      var earned0 = walletState ? (walletState.earned_zero || 0) : earnBalance;
-      pill.textContent = bnNum(fmtZero((Number(earned0) || 0) + (Number(w0.zero) || 0)));
-    }
-    // v28: Wallet-screen Deposit/Withdraw buttons reuse the Deposit /
-    // Withdraw heading keys (the <h3> wrapper stripped) — no new copy.
-    // (Lives here, not in applyI18n, so the i18n smoke-test slice —
-    // which has no $() helper — keeps passing.)
-    var depBtn = $('walletDepositBtn');
-    if (depBtn) depBtn.textContent = t("wallet.deposit_heading").replace(/<\/?h3>/g, '');
-    var wdBtn = $('walletWithdrawBtn');
-    if (wdBtn) wdBtn.textContent = t("wallet.withdraw_heading").replace(/<\/?h3>/g, '');
+    if (pill) pill.textContent = bnNum(fmtZero(totalZeroBalance()));
     if (!earnProfile) { el.innerHTML = ''; return; }
     var sec = $('profileSection');
     if (sec) sec.hidden = false;
     var w = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
     var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
+    // v32: slim summary only — total balance + ONE "Open Wallet" button.
+    // The old Deposit/Withdraw/Shop/PDF buttons duplicated the Wallet
+    // screen; the screen is the only full wallet UI now.
     el.innerHTML =
       '<div class="earn-profile-top">' +
       '<div class="earn-avatar">👛</div>' +
       t("wallet.zero_wallet_name") +
-      ''+t("shop.wallet_earnings_label")+' ' + bnNum(fmtZero(earned)) + ' ZERO • Wallet: ' + bnNum(fmtZero(w.zero)) + ' ZERO • ' + bnNum(fmtZero(w.gram)) + ' GRAM • ' + bnNum(fmtZero(w.stars)) + ' Stars</div></div>' +
-      '<div class="earn-balance-big">' + bnNum(fmtZero(earnBalance)) + ' ZERO</div>' +
+      '<div>' + esc(t("wallet.hero_earned_wallet_split", bnNum(fmtZero(earned)), bnNum(fmtZero(w.zero)))) + '</div></div>' +
+      '<div class="earn-balance-big">' + bnNum(fmtZero(totalZeroBalance())) + ' ZERO</div>' +
       '</div>' +
       '<div class="wallet-actions">' +
-      t("wallet.withdraw_deposit_button") +
-      t("common.view_shop_button") +
-      t("pdfs.wallet_buy_pdfs_button") +
-      '<button class="btn-secondary" type="button" data-wallet-screen">' + esc(t("wallet.profile_wallet_section_title")) + '</button>' +
-      '</div>' +
-      t("wallet.deposit_optional_note");
-    var openBtn = el.querySelector('[data-wallet-open]');
-    if (openBtn) openBtn.onclick = function () { openWalletSheet(); };
-    var shopBtn = el.querySelector('[data-wallet-shop]');
-    if (shopBtn) shopBtn.onclick = function () { setActiveNav('shop'); scrollToEl($('chips')); };
-    var pdfBtn = el.querySelector('[data-wallet-pdf]');
-    if (pdfBtn) pdfBtn.onclick = function () { setActiveNav('mypdf'); scrollToEl($('myPdfSection')); };
+      '<button class="btn-primary" type="button" data-wallet-screen">' + esc(t("wallet.profile_wallet_section_title")) + '</button>' +
+      '</div>';
     var screenBtn = el.querySelector('[data-wallet-screen]');
     if (screenBtn) screenBtn.onclick = function () { showWalletScreen(); };
     renderWalletScreen();
@@ -2288,7 +2280,7 @@
     sec.hidden = false;
     var w = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
     var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
-    var total = (Number(earned) || 0) + (Number(w.zero) || 0);
+    var total = totalZeroBalance();
     var hero = $('walletHero');
     if (hero) {
       hero.innerHTML =
@@ -2320,7 +2312,20 @@
         '<div class="pdf-note">' + t("wallet.withdraw_gate_note") + '</div>' +
         '<div class="hist-row"><div class="hist-title">' + esc(joinRow) + '</div><div class="hist-amt' + (gate && gate.joined ? ' pos' : '') + '"><a href="https://t.me/bazargoowithdraw" target="_blank" rel="noopener">' + esc(t("wallet.withdraw_gate_join_link")) + '</a></div></div>' +
         '<div class="hist-row"><div class="hist-title">' + esc(reactRow) + '</div><div class="hist-amt' + (gate && gate.react_done ? ' pos' : '') + '"><a href="https://t.me/bazargoowithdraw/2" target="_blank" rel="noopener">' + esc(t("wallet.withdraw_gate_react_link")) + '</a></div></div>' +
-        ((gate && gate.ok) ? '<div class="task-status done">' + esc(t("wallet.withdraw_gate_ok")) + '</div>' : '');
+        ((gate && gate.ok)
+          ? '<div class="task-status done">' + esc(t("wallet.withdraw_gate_ok")) + '</div>'
+          : '<button class="btn-secondary btn-block" type="button" id="wdGateClaimBtn">' + esc(t("wallet.withdraw_gate_claim_button")) + '</button><div id="wdGateMsg"></div>') +
+        '<button class="btn-secondary btn-block" type="button" id="wdGateRefreshBtn">' + esc(t("wallet.withdraw_gate_refresh_button")) + '</button>';
+      // v32: gate actions live on the Wallet screen now (the sheet is
+      // gone). Claim re-checks via /wallet; refresh just reloads the
+      // wallet state and this card re-renders with it.
+      var gateClaimBtn = $('wdGateClaimBtn');
+      if (gateClaimBtn) gateClaimBtn.addEventListener('click', function () {
+        claimTask('react_withdraw');
+        loadWallet();
+      });
+      var gateRefreshBtn = $('wdGateRefreshBtn');
+      if (gateRefreshBtn) gateRefreshBtn.addEventListener('click', function () { loadWallet(); });
     }
     var guide = $('walletGuide');
     if (guide) {
@@ -2334,6 +2339,7 @@
         t("wallet.zero_guide_warning") +
         gramNote;
     }
+    renderWalletForms();
   }
   // v28: gate row label with a live status mark — the key's own leading
   // mark (✅/○) is replaced by the live state (✅ done / ⬜ pending).
@@ -2351,64 +2357,39 @@
     loadWallet();
     scrollToEl(sec);
   }
-  function walletSheetHtml() {
-    var w = (walletState && walletState.balance) ? walletState.balance : { zero: 0, gram: 0, stars: 0 };
-    var earned = walletState ? (walletState.earned_zero || 0) : earnBalance;
-    var gramNote = (walletState && walletState.gram_configured)
-      ? ''
-      : t("wallet.gram_not_live_note");
-    // v27 withdraw gate: instant withdrawals need @bazargoowithdraw
-    // join + today's react stamp. Status comes from /wallet
-    // (withdraw_gate); the sheet shows the two steps with Join/React
-    // buttons and a claim button for the react stamp.
-    var gate = walletState && walletState.withdraw_gate;
-    var gateHtml = '';
-    if (gate) {
-      var joinMark = gate.joined ? '✅' : '⬜';
-      var reactMark = gate.react_done ? '✅' : '⬜';
-      gateHtml = '<h3>'+t("wallet.withdraw_gate_heading")+'</h3>' +
-        '<div class="pdf-note">'+t("wallet.withdraw_gate_note")+'</div>' +
-        '<div class="form-row"><a class="btn-primary" href="https://t.me/bazargoowithdraw" target="_blank" rel="noopener">'+t("wallet.withdraw_gate_join_button")+'' + joinMark + '</a>' +
-        '<a class="btn-primary" href="https://t.me/bazargoowithdraw/2" target="_blank" rel="noopener">'+t("wallet.withdraw_gate_react_button")+'' + reactMark + '</a></div>' +
-        (gate.ok
-          ? '<div class="task-status done">'+t("wallet.withdraw_gate_ok")+'</div>'
-          : '<button class="btn-secondary btn-block" type="button" id="wdGateClaimBtn">'+t("wallet.withdraw_gate_claim_button")+'</button><div id="wdGateMsg"></div>') +
-        '<button class="btn-secondary btn-block" type="button" id="wdGateRefreshBtn">'+t("wallet.withdraw_gate_refresh_button")+'</button>';
-    }
-    return ''+t("wallet.earnings_label")+' ' + bnNum(fmtZero(earned)) + ' ZERO &nbsp;•&nbsp; <strong>Wallet:</strong> ' +
-      bnNum(fmtZero(w.zero)) + ' ZERO • ' + bnNum(fmtZero(w.gram)) + ' GRAM • ' + bnNum(fmtZero(w.stars)) + ' Stars</p>' +
-      t("wallet.deposit_heading") +
+  // v32: the Wallet screen's inline Deposit / Withdraw / Save-address
+  // forms. The form HTML comes from the existing wallet.* i18n keys
+  // (the same fragments the v26 sheet used) — no new keys. Rendered
+  // once per language so typed amounts survive wallet refreshes; a
+  // language switch re-renders them via rerenderAll() -> renderWallet().
+  var walletFormsLang = '';
+  function renderWalletForms() {
+    if (walletFormsLang === LANG) return;
+    var depForm = $('walletDepositForm');
+    var wdForm = $('walletWithdrawForm');
+    var addrForm = $('walletAddressForm');
+    if (!depForm || !wdForm || !addrForm) return;
+    depForm.innerHTML =
       t("wallet.deposit_currency_label") +
       t("wallet.deposit_amount_label") +
-      t("wallet.deposit_start_button") +
-      '<div id="depPayBox"></div>' +
-      gateHtml +
-      t("wallet.withdraw_heading") +
+      t("wallet.deposit_start_button");
+    wdForm.innerHTML =
       t("wallet.withdraw_currency_label") +
       t("wallet.withdraw_amount_label") +
       t("wallet.withdraw_address_label") +
       t("wallet.withdraw_mode_label") +
-      t("wallet.withdraw_request_button") +
-      '<div id="wdMsg"></div>' +
-      t("wallet.withdraw_limits_note") +
-      t("wallet.save_address_heading") +
+      t("wallet.withdraw_request_button");
+    addrForm.innerHTML =
       t("wallet.address_currency_label") +
       t("wallet.address_value_label") +
-      t("wallet.save_address_button") +
-      '<div id="addrMsg"></div>' +
-      t("wallet.zero_wallet_guide_heading") +
-      t("wallet.zero_guide_step1") +
-      t("wallet.zero_guide_step2") +
-      t("wallet.zero_guide_step3") +
-      t("wallet.zero_guide_step4") +
-      t("wallet.zero_guide_warning") +
-      gramNote;
+      t("wallet.save_address_button");
+    walletFormsLang = LANG;
+    wireWalletForms();
   }
-  function openWalletSheet() {
-    var body = $('walletBody');
-    if (!body) return;
-    body.innerHTML = walletSheetHtml();
-    showSheet('walletSheet', 'wallet');
+  // v32: Deposit / Withdraw / Save-address handlers — moved verbatim
+  // from the deleted v26 wallet sheet; the element IDs are unchanged,
+  // only the container changed (inline cards instead of a sheet).
+  function wireWalletForms() {
     var depBtn = $('depStartBtn');
     if (depBtn) depBtn.addEventListener('click', function () {
       var uid = tgUserId();
@@ -2474,19 +2455,6 @@
         }
         loadWallet(); loadTasks();
       });
-    });
-    // v27 withdraw gate: claim the react stamp, then refresh the
-    // wallet state + re-render the sheet so the gate shows done.
-    var gateClaimBtn = $('wdGateClaimBtn');
-    if (gateClaimBtn) gateClaimBtn.addEventListener('click', function () {
-      claimTask('react_withdraw');
-      loadWallet();
-      setTimeout(function () { openWalletSheet(); }, 900);
-    });
-    var gateRefreshBtn = $('wdGateRefreshBtn');
-    if (gateRefreshBtn) gateRefreshBtn.addEventListener('click', function () {
-      loadWallet();
-      setTimeout(function () { openWalletSheet(); }, 900);
     });
     var addrBtn = $('addrSaveBtn');
     if (addrBtn) addrBtn.addEventListener('click', function () {
@@ -3129,7 +3097,6 @@
     else if (openSheet === 'reviewConfirm') closeSheet('reviewConfirmSheet');
     else if (openSheet === 'orders') closeSheet('ordersSheet');
     else if (openSheet === 'pdfZero') closeSheet('pdfZeroSheet');
-    else if (openSheet === 'wallet') closeSheet('walletSheet');
     else if (openSheet === 'promoteCreate') closeSheet('promoteCreateModal');
   }
 
@@ -4200,14 +4167,11 @@
     renderCouponBanner();
     $('cartBtn').addEventListener('click', openCartSheet);
     $('ordersBtn').addEventListener('click', openOrdersSheet);
-    // v28: header balance pill opens the Wallet screen; the screen's
-    // Deposit/Withdraw buttons open the existing v26 wallet sheet.
+    // v28: header balance pill opens the Wallet screen. v32: the
+    // screen's Deposit/Withdraw are inline cards — no sheet, no
+    // separate buttons to wire here.
     var balancePill = $('balancePill');
     if (balancePill) balancePill.addEventListener('click', showWalletScreen);
-    var walletDepBtn = $('walletDepositBtn');
-    if (walletDepBtn) walletDepBtn.addEventListener('click', openWalletSheet);
-    var walletWdBtn = $('walletWithdrawBtn');
-    if (walletWdBtn) walletWdBtn.addEventListener('click', openWalletSheet);
     // v30: Promote — banner on the Shop screen + Promotion Ads page.
     var promoteBanner = $('promoteBanner');
     if (promoteBanner) {
