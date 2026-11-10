@@ -1605,13 +1605,22 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
    Purple gradient #7C3AED -> #4F46E5, white cards, soft shadows,
    rounded corners. The banner sits on the Shop screen below the
    coupon banner; the page + modal follow the reference screenshots. */
+/* v31: GLOBAL sticky banner — it sits directly under the sticky app
+   header and stays visible at the top on EVERY tab/page. The header is
+   68px tall (10px + 10px padding + 48px tallest control), so
+   top 60px + 8px top margin = flush under it when stuck. z-index 15
+   keeps it below the header (20) and above page content. Compact
+   height so it never eats much screen. */
 .promote-banner {
+  position: sticky;
+  top: 60px;
+  z-index: 15;
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  margin: 12px 0 0;
-  padding: 16px;
+  width: auto;
+  margin: 8px 12px 0;
+  padding: 12px 14px;
   border: none;
   border-radius: 16px;
   background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
@@ -1627,11 +1636,11 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.2);
-  font-size: 22px;
+  font-size: 20px;
 }
 .promote-banner-text {
   flex: 1;
@@ -1640,8 +1649,8 @@ input[type="search"]::-webkit-search-cancel-button { display: none; }
   flex-direction: column;
   gap: 2px;
 }
-.promote-banner-title { font-size: 17px; font-weight: 800; line-height: 1.25; }
-.promote-banner-sub { font-size: 13px; opacity: 0.85; }
+.promote-banner-title { font-size: 16px; font-weight: 800; line-height: 1.25; }
+.promote-banner-sub { font-size: 12px; opacity: 0.85; }
 .promote-banner-arrow {
   flex: 0 0 auto;
   display: flex;
