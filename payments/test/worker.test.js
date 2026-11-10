@@ -3228,6 +3228,53 @@ test('v30 promote-confirm: image_url stored when given, null when empty; /my-pro
   assert.equal(others.promotions[0].id, 'PR-20261109-OTHR');
 });
 
+test('v31 promote "others": type accepted first-class; full submit -> approve -> dwell -> claim path credits 1 ZERO', async () => {
+  const kv = makeKv();
+  envForPost = makeEnv(kv);
+  const uid = 8507294759;
+  const base = { title: 'অন্য কিছু', url: 'https://example.com/other', type: 'others', currency: 'zero', budget: 100 };
+  // Submit with type "others" is accepted (was invalid_type before v31).
+  const sub = await promoteSubmit(uid, { ...base });
+  assert.equal(sub.ok, true);
+  assert.equal(sub.completions, 80);
+  assert.equal(sub.reward_per_completion, 1);
+  // Full path: confirm (ZERO txid) -> approve -> live in /tasks -> sponsor-start -> dwell -> claim.
+  fetchStub.setZeroTx({
+    confirmations: 6,
+    vout: [{ value: 100, scriptPubKey: { addresses: ['t1TestShopAddress123'] } }],
+  });
+  const conf = await promoteConfirm(uid, { ...base, txid: 'txid-others-1' });
+  assert.equal(conf.ok, true);
+  const promoId = conf.promo_id;
+  assert.equal(JSON.parse(await kv.get('zpromo:' + promoId)).type, 'others');
+  assert.equal(JSON.parse(await kv.get('zpromo:' + promoId)).status, 'pending_approval');
+  const appr = await handleUpdate(adminCallbackUpdate(ADMIN_ID, 'promo_approve:' + promoId, '📢 নতুন Promote'), envForPost);
+  assert.equal(appr.ok, true);
+  assert.equal(JSON.parse(await kv.get('zpromo:' + promoId)).status, 'live');
+  // An "others" promo (generic URL, no target channel) appears as a sponsor task.
+  const state = await getTasks(uid);
+  const task = state.tasks.find((t) => t.id === 'sponsor_' + promoId);
+  assert.ok(task);
+  assert.equal(task.group, 'sponsor');
+  assert.equal(task.reward, 1);
+  assert.equal(task.reward_currency, 'ZERO');
+  // Generic claim path: open the link (/sponsor-start) + 15s dwell, then claim.
+  assert.deepEqual(await claim(uid, 'sponsor_' + promoId), { ok: false, reason: 'start_first' });
+  const started = await sponsorStart(uid, promoId);
+  assert.equal(started.ok, true);
+  assert.equal(started.dwell_ms, 15000);
+  const early = await claim(uid, 'sponsor_' + promoId);
+  assert.equal(early.ok, false);
+  assert.equal(early.reason, 'dwell_not_done');
+  await kv.put('zpromostart:' + uid + ':' + promoId, String(Date.now() - 20000));
+  const done = await claim(uid, 'sponsor_' + promoId);
+  assert.equal(done.ok, true);
+  assert.equal(done.credited, 1);
+  assert.equal(done.currency, 'ZERO');
+  assert.equal(done.remaining, 79);
+  assert.deepEqual(await claim(uid, 'sponsor_' + promoId), { ok: false, reason: 'already_done' });
+});
+
 test('v26 promote admin: approve lists the promo live; reject marks it rejected; non-admin ignored', async () => {
   const kv = makeKv();
   const env = makeEnv(kv);
