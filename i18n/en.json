@@ -396,6 +396,7 @@
   "promote.type_facebook_options": "<option value=\"facebook_page\">Facebook Page</option><option value=\"facebook\">Facebook (post/profile)</option>",
   "promote.type_label_open": "<div class=\"form-row\"><label>Type <select id=\"promoType\">",
   "promote.type_label_short": "Type",
+  "promote.type_others_options": "<option value=\"others\">Others</option>",
   "promote.type_telegram_post_options": "<option value=\"telegram_channel\">Telegram channel</option><option value=\"post\">Post</option>",
   "promote.type_video_youtube_tiktok_options": "<option value=\"video\">Video</option><option value=\"youtube\">YouTube</option><option value=\"tiktok\">TikTok</option>",
   "promote.type_x_instagram_referral_options": "<option value=\"x\">X (Twitter)</option><option value=\"instagram\">Instagram</option><option value=\"referral\">Referral link</option>",
