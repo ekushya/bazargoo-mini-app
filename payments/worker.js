@@ -4774,7 +4774,7 @@ export async function handlePromoteSubmit(env, body) {
   const lang = await apiLang(env, userId, body && body.lang);
   if (!userId) return { ok: false, reason: 'no_user' };
   if (!title || !/^https?:\/\/.+\..+/.test(url)) return { ok: false, reason: 'invalid_url' };
-  const types = ['facebook', 'facebook_page', 'youtube', 'tiktok', 'x', 'instagram', 'referral', 'telegram_channel', 'post', 'video'];
+  const types = ['others', 'facebook', 'facebook_page', 'youtube', 'tiktok', 'x', 'instagram', 'referral', 'telegram_channel', 'post', 'video'];
   if (types.indexOf(type) < 0) return { ok: false, reason: 'invalid_type' };
   if (currency === 'zero') {
     if (!Number.isFinite(budget) || budget < PROMOTE_MIN_BUDGET_ZERO || budget > PROMOTE_MAX_BUDGET_ZERO) {
