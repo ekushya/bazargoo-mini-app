@@ -72,7 +72,14 @@
   </section>
 
   <section id="earnSection" class="deals" hidden>
-    <h2 class="section-heading">EARN</h2>
+    <!-- v29: Task page is its own black/gold ATF identity (Jack's Farm tabs),
+         completely separate from the v28 Pickaxe theme used elsewhere. -->
+    <h2 class="atf-heading" data-i18n="tasks.earn_rewards_heading">Earn Rewards</h2>
+    <p class="atf-subtitle" data-i18n="tasks.earn_rewards_subtitle">Rewards go directly to your ZERO balance</p>
+    <div class="atf-tabs" role="tablist">
+      <button type="button" class="atf-tab active" id="earnTabDaily" data-earn-tab="daily" data-i18n="tasks.tab_daily">🎁 Daily</button>
+      <button type="button" class="atf-tab" id="earnTabSocial" data-earn-tab="social" data-i18n="tasks.v29_tab_social">👥 Social</button>
+    </div>
     <div id="earnLevelBar" hidden></div>
     <div id="earnStreak" hidden></div>
     <div id="earnMonthly" hidden></div>
@@ -420,6 +427,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
