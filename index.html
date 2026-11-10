@@ -33,6 +33,17 @@
     <span class="coupon-banner-hint" data-i18n="coupons.banner_tap_to_copy">চাপ দিলে কপি হবে</span>
   </div>
 
+  <!-- v30: Promote banner (Gram Network style — purple gradient card).
+       Tapping it opens the Promotion Ads page. -->
+  <div id="promoteBanner" class="promote-banner" role="button" tabindex="0">
+    <span class="promote-banner-icon" aria-hidden="true">📢</span>
+    <span class="promote-banner-text">
+      <span class="promote-banner-title" data-i18n="promote.banner_title">Promote Your Ads</span>
+      <span class="promote-banner-sub" data-i18n="promote.banner_subtitle">Reach thousands of active users</span>
+    </span>
+    <span class="promote-banner-arrow" aria-hidden="true">→</span>
+  </div>
+
   <div class="toolbar">
     <div class="search-wrap">
       <input id="searchInput" type="search" placeholder="প্রোডাক্ট খুঁজুন…" autocomplete="off" aria-label="প্রোডাক্ট খুঁজুন" data-i18n-placeholder="common.search_products_placeholder" data-i18n-aria-label="common.search_products_label">
@@ -136,10 +147,10 @@
     <div class="pdf-note" data-i18n="wallet.profile_wallet_live_note">ZERO ও GRAM উইথড্র ও ডিপোজিট চালু হয়েছে — Wallet খুলে দেখুন। তোলা ম্যানুয়াল — অ্যাডমিন পাঠিয়ে txid জানিয়ে দেন। ZERO তুলতে কোনো ফি বা সর্বনিম্ন সীমা নেই।</div>
   </section>
 
-  <!-- Wallet screen (v28, Option A — header pill + full screen, no 7th tab).
-       Hero, currency rows, gate card and guide are rendered by
-       renderWalletScreen() in app.js; Deposit/Withdraw open the
-       existing v26 wallet sheet. -->
+  <!-- Wallet screen (v28, Option A — header pill + full screen).
+       v30: also a bottom-nav tab (position 2). Hero, currency rows,
+       gate card and guide are rendered by renderWalletScreen() in
+       app.js; Deposit/Withdraw open the existing v26 wallet sheet. -->
   <section id="walletSection" class="deals" hidden>
     <h2 data-i18n="wallet.profile_wallet_section_title">👛 ওয়ালেট</h2>
     <div id="walletHero"></div>
@@ -154,6 +165,22 @@
     <div id="walletHistoryList" class="deals-row"></div>
     <div id="walletHistoryEmpty" class="pdf-note" hidden data-i18n="shop.no_transactions_yet">এখনো কোনো লেনদেন হয়নি।</div>
     <div id="walletGuide" class="earn-profile"></div>
+  </section>
+
+  <!-- Promotion Ads page (v30 — Gram Network style, BazarGoo data).
+       Full-screen section, not a sheet. The black pill header,
+       3 stat cards and the list are rendered by renderPromotePage()
+       in app.js. -->
+  <section id="promoteSection" class="deals promote-page" hidden>
+    <div class="promote-page-header">
+      <button id="promoteBackBtn" class="promote-back-btn" type="button" aria-label="ফিরে যান" data-i18n-aria-label="common.back">←</button>
+      <span class="promote-page-title" data-i18n="promote.page_title">Promotion Ads</span>
+    </div>
+    <div id="promoteStats" class="promote-stats"></div>
+    <button id="promoteCreateBtn" class="promote-create-btn" type="button">+ <span data-i18n="promote.create_new">Create New Promotion</span></button>
+    <h3 class="promote-my-heading" data-i18n="promote.my_promotions">My Promotions</h3>
+    <div id="promoteMyList" class="promote-my-list"></div>
+    <div id="promoteMyEmpty" class="promote-my-empty" hidden data-i18n="promote.no_promotions_yet">You have no promotions yet.</div>
   </section>
 
   <section id="browserSection" class="deals">
@@ -388,13 +415,42 @@
     </div>
   </div>
 
-  <!-- Promote sheet (v26) -->
-  <div id="promoteSheet" class="sheet-backdrop" hidden>
-    <div class="sheet" role="dialog" aria-modal="true">
-      <button class="sheet-close" type="button" data-close="promoteSheet" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
+  <!-- Create New Promotion modal (v30 — replaces the v26 promote sheet).
+       Image URL is OPTIONAL: leaving it empty is fine and the sponsor
+       task then shows without an image. -->
+  <div id="promoteCreateModal" class="sheet-backdrop" hidden>
+    <div class="sheet promote-create-sheet" role="dialog" aria-modal="true">
+      <button class="sheet-close" type="button" data-close="promoteCreateModal" aria-label="বন্ধ করুন" data-i18n-aria-label="common.close">✕</button>
       <div class="sheet-body">
-        <h2 data-i18n="common.promote_heading">📢 Promote করুন</h2>
-        <div id="promoteBody"></div>
+        <h2 data-i18n="promote.create_title">Create New Promotion</h2>
+        <form id="promoteCreateForm" novalidate>
+          <label class="promote-field-label" for="promoteTitleInput" data-i18n="promote.item_title_placeholder">Item Title</label>
+          <input id="promoteTitleInput" class="promote-input" type="text" maxlength="80" required>
+          <label class="promote-field-label" for="promoteLinkInput" data-i18n="promote.item_link_placeholder">Item Link</label>
+          <input id="promoteLinkInput" class="promote-input" type="url" inputmode="url" placeholder="https://your-item-link.com" required>
+          <label class="promote-field-label" for="promoteImageInput" data-i18n="promote.image_url_placeholder">Image URL (optional)</label>
+          <input id="promoteImageInput" class="promote-input" type="url" inputmode="url" placeholder="https://…">
+          <label class="promote-field-label" for="promoteBudgetInput" data-i18n="promote.budget_label">মোট বাজেট</label>
+          <input id="promoteBudgetInput" class="promote-input" type="number" inputmode="decimal" min="0" step="any" required>
+          <p id="promoteEstimated" class="promote-estimated" data-i18n="promote.estimated_clicks">Estimated clicks you'll get: 0</p>
+          <div class="promote-select-row">
+            <div class="promote-select-field">
+              <label class="promote-field-label" for="promoteTypeSelect" data-i18n="promote.type_label_short">Type</label>
+              <select id="promoteTypeSelect" class="promote-input promote-select"></select>
+            </div>
+            <div class="promote-select-field">
+              <label class="promote-field-label" for="promoteCurrencySelect" data-i18n="promote.currency_label_short">Currency</label>
+              <select id="promoteCurrencySelect" class="promote-input promote-select">
+                <option value="zero">ZERO</option>
+                <option value="gram">GRAM</option>
+              </select>
+            </div>
+          </div>
+          <p id="promoteCreateError" class="form-error" hidden></p>
+          <button id="promoteNowBtn" class="promote-now-btn" type="submit"><span data-i18n="promote.promote_now">🚀 Promote Now</span></button>
+          <button id="promoteCancelBtn" class="promote-cancel-btn" type="button" data-close="promoteCreateModal" data-i18n="promote.cancel_button">Cancel</button>
+        </form>
+        <div id="promotePayBox"></div>
       </div>
     </div>
   </div>
@@ -404,6 +460,12 @@
     <button type="button" class="bottom-nav-tab active" data-nav-tab="shop" aria-label="দোকান" data-i18n-aria-label="common.shop_tab">
       <span class="bottom-nav-icon">🛍️</span>
       <span class="bottom-nav-label" data-i18n="common.shop_tab">দোকান</span>
+    </button>
+    <!-- v30: Wallet tab (position 2, like Gram Network's Home/Wallet nav).
+         Opens the existing v28 Wallet screen. -->
+    <button type="button" class="bottom-nav-tab" data-nav-tab="wallet" aria-label="ওয়ালেট" data-i18n-aria-label="common.wallet_tab">
+      <span class="bottom-nav-icon">👛</span>
+      <span class="bottom-nav-label" data-i18n="common.wallet_tab">ওয়ালেট</span>
     </button>
     <button type="button" class="bottom-nav-tab" data-nav-tab="tasks" aria-label="টাস্ক" data-i18n-aria-label="tasks.nav_tasks_label">
       <span class="bottom-nav-icon">✅</span>
@@ -427,6 +489,6 @@
     </button>
   </nav>
 
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>
