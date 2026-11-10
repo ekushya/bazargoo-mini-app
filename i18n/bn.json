@@ -396,6 +396,7 @@
   "promote.type_facebook_options": "<option value=\"facebook_page\">Facebook Page</option><option value=\"facebook\">Facebook (পোস্ট/প্রোফাইল)</option>",
   "promote.type_label_open": "<div class=\"form-row\"><label>ধরন <select id=\"promoType\">",
   "promote.type_label_short": "ধরন",
+  "promote.type_others_options": "<option value=\"others\">অন্যান্য</option>",
   "promote.type_telegram_post_options": "<option value=\"telegram_channel\">Telegram চ্যানেল</option><option value=\"post\">পোস্ট</option>",
   "promote.type_video_youtube_tiktok_options": "<option value=\"video\">ভিডিও</option><option value=\"youtube\">YouTube</option><option value=\"tiktok\">TikTok</option>",
   "promote.type_x_instagram_referral_options": "<option value=\"x\">X (Twitter)</option><option value=\"instagram\">Instagram</option><option value=\"referral\">রেফারেল লিংক</option>",
